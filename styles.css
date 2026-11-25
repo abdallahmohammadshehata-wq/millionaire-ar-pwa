@@ -704,6 +704,41 @@ body[data-mood="win"] .beam-2 {
 .solo-info h3 { font-size: 1.05rem; color: #fff; margin-bottom: 3px; }
 .solo-info p { font-size: 0.82rem; color: #cbd5e1; line-height: 1.45; }
 
+.solo-time-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+.solo-time-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--gold-1);
+}
+.mini-pill-selector {
+  display: inline-flex;
+  gap: 5px;
+}
+.mini-pill-opt {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(5, 11, 36, 0.84);
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mini-pill-opt.active {
+  background: rgba(246, 192, 56, 0.22);
+  color: var(--gold-1);
+  border-color: var(--gold-2);
+  box-shadow: 0 0 10px rgba(246, 192, 56, 0.25);
+}
+
 /* Rules 4-Card Grid */
 .rules-grid {
   display: grid;
@@ -999,7 +1034,7 @@ body[data-mood="win"] .beam-2 {
   cursor: pointer;
 }
 
-/* Broadcast Circular 10-Second Timer Orb */
+/* Broadcast Circular Timer Orb */
 .timer-orb-wrap {
   position: relative;
   width: 72px;
@@ -1102,10 +1137,7 @@ body[data-mood="win"] .beam-2 {
   transform: scale(1.05);
   box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
 }
-.sc-status-tag {
-  font-size: 0.68rem;
-  font-weight: 900;
-}
+.sc-status-tag { font-size: 0.68rem; font-weight: 900; }
 .sc-name { font-size: 0.82rem; font-weight: 800; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-pts {
   padding: 2px 8px;
@@ -1168,7 +1200,6 @@ body[data-mood="win"] .beam-2 {
   opacity: 0.32;
   pointer-events: none;
   filter: grayscale(0.9);
-  position: relative;
 }
 
 /* Status Banner + Auto-Advance Strip */
@@ -1245,7 +1276,6 @@ body[data-mood="win"] .beam-2 {
   .stage-line-sm { width: 7px; }
 }
 
-/* True Beveled Hexagonal Question Lozenge (Outer Gold Bezel + Inner Sapphire Cut) */
 .hex-frame {
   flex: 1;
   padding: 2.5px;
@@ -1283,7 +1313,6 @@ body[data-mood="win"] .beam-2 {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
-/* Visual Solo Helper Card (Audience Chart / Phone a Friend) */
 .solo-helper-box {
   padding: 12px 16px;
   border-radius: 15px;
@@ -1306,7 +1335,6 @@ body[data-mood="win"] .beam-2 {
 .aud-pct { font-size: 0.72rem; font-weight: 900; color: var(--gold-1); direction: ltr; }
 .aud-let { font-size: 0.78rem; font-weight: 800; color: #fff; }
 
-/* 4 True Beveled Hexagonal Option Buttons */
 .answers-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1372,7 +1400,6 @@ body[data-mood="win"] .beam-2 {
 .opt-letter { color: var(--gold-1); font-weight: 900; font-size: 1.06rem; min-width: 18px; }
 .opt-text { flex: 1; line-height: 1.35; }
 
-/* Option Feedback States (Authentic Millionaire Amber -> Green / Red) */
 .hex-option.selected-pending { background: linear-gradient(135deg, #fef08a, #f59e0b); }
 .hex-option.selected-pending .hex-opt-inner {
   background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%) !important;
@@ -1401,15 +1428,8 @@ body[data-mood="win"] .beam-2 {
 }
 
 /* Solo Prize Ladder Panel */
-.solo-ladder-panel {
-  padding: 12px;
-}
-.ladder-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
+.solo-ladder-panel { padding: 12px; }
+.ladder-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .ladder-head h3 { font-size: 0.95rem; color: var(--gold-1); }
 .ladder-close-btn { display: none; width: 30px; height: 30px; font-size: 0.85rem; }
 
@@ -1499,7 +1519,6 @@ body[data-mood="win"] .beam-2 {
 .results-title { font-size: 1.7rem; font-weight: 900; color: var(--gold-1); position: relative; }
 .results-subtitle { color: #cbd5e1; font-size: 0.92rem; margin-bottom: 20px; position: relative; }
 
-/* 3-Column Visual Championship Podium */
 .visual-podium {
   display: flex;
   align-items: flex-end;
@@ -1509,12 +1528,7 @@ body[data-mood="win"] .beam-2 {
   margin: 0 auto 22px;
   padding-top: 12px;
 }
-.podium-pillar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+.podium-pillar { flex: 1; display: flex; flex-direction: column; align-items: center; }
 .pillar-avatar { font-size: 2rem; margin-bottom: 3px; }
 .pillar-name {
   font-size: 0.84rem;
@@ -1579,12 +1593,7 @@ body[data-mood="win"] .beam-2 {
 .podium-left { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.98rem; }
 .podium-score { font-weight: 900; font-size: 1.08rem; color: var(--gold-1); direction: ltr; }
 
-.results-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.results-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
 /* ==================== MODAL & TOASTS ==================== */
 .modal-backdrop {

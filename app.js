@@ -5,7 +5,9 @@ import { FALLBACK_QUESTIONS } from './questions-bank.js';
    ========================================================================= */
 const DEFAULT_GEMINI_KEY = '';
 const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemma-4-26b-a4b-it', 'gemini-4-hydrogen'];
-const QUESTION_DURATION_MS = 10000; // مهلة السؤال الكلية 10 ثوانٍ بالضبط
+const ALLOWED_TIME_OPTIONS = [10, 15, 20, 30];
+const SAVED_TIME_SEC = Number(localStorage.getItem('mm_time_sec'));
+const DEFAULT_QUESTION_SECONDS = ALLOWED_TIME_OPTIONS.includes(SAVED_TIME_SEC) ? SAVED_TIME_SEC : 10;
 const CIRCUMFERENCE = 2 * Math.PI * 43; // r=43 -> ~270.17
 
 const BROKERS = [
@@ -21,7 +23,7 @@ const SOLO_PRIZES = [
   '64,000', '125,000', '250,000', '500,000', '1,000,000'
 ];
 const SOLO_PRIZE_VALUES = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
-const SAFE_INDICES = new Set([4, 9, 14]); // 1,000 / 32,000 / 1,000,000
+const SAFE_INDICES = new Set([4, 9, 14]);
 
 const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
 
@@ -34,6 +36,10 @@ const SUBTOPIC_SEEDS = [
   'عجائب الطبيعة والجزر والقارات وأحداث القرن العشرين الكبرى',
   'القرآن الكريم وعلومه واللغة العربية وأسئلة ذكاء منطقي سريع'
 ];
+
+function formatArabicSeconds(sec) {
+  return sec === 10 ? '10 ثوانٍ' : `${sec} ثانية`;
+}
 
 /* =========================================================================
    HAPTICS, MOOD LIGHTING & CONFETTI PARTICLE ENGINE
@@ -111,7 +117,7 @@ class ParticleFX {
       const p = this.particles[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.16; // gentle gravity
+      p.vy += 0.16;
       p.vx *= 0.99;
       p.rot += p.vrot;
       p.life -= p.decay;
@@ -362,7 +368,7 @@ class AIQuestionGenerator {
       `وزّع الأسئلة بالتساوي قدر الإمكان على التصنيفات التالية: (${cats.join('، ')}).`,
       `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
-      `1. مدة الإجابة في اللعبة 10 ثوانٍ فقط؛ لذلك اجعل نص السؤال واضحاً ومختصراً ومباشراً (أقل من 18 كلمة)، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة تُحل ذهنياً في ثوانٍ.`,
+      `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً (أقل من 18 كلمة)، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة تُحل ذهنياً بسرعة.`,
       `2. كل سؤال له 4 خيارات مختلفة تماماً (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
       `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3).`,
       recentSeen.length ? `4. لا تكرر نهائياً أياً من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
@@ -646,7 +652,7 @@ function resetNextRoundBar() {
 }
 
 /* =========================================================================
-   LOCAL UI COUNTDOWN (10 SECONDS)
+   LOCAL UI COUNTDOWN (CONFIGURABLE: 10 / 15 / 20 / 30 SECONDS)
    ========================================================================= */
 let uiTimerInterval = null;
 let lastTickSecond = -1;
@@ -659,11 +665,12 @@ function stopVisualTimer() {
   $('timerOrbWrap').classList.remove('danger');
 }
 
-function startVisualTimer(durationMs = QUESTION_DURATION_MS, onLocalExpire = null) {
+function startVisualTimer(durationMs = 10000, onLocalExpire = null) {
   stopVisualTimer();
   setStudioMood('tension');
   const startTs = performance.now();
-  lastTickSecond = Math.ceil(durationMs / 1000);
+  const totalSec = Math.max(1, Math.ceil(durationMs / 1000));
+  lastTickSecond = totalSec;
 
   const circle = $('timerCircle');
   const numEl = $('timerNumber');
@@ -687,9 +694,9 @@ function startVisualTimer(durationMs = QUESTION_DURATION_MS, onLocalExpire = nul
       wrapEl.classList.remove('danger');
     }
 
-    if (secCeil !== lastTickSecond && secCeil > 0 && secCeil <= 9) {
+    if (secCeil !== lastTickSecond && secCeil > 0 && secCeil < totalSec) {
       lastTickSecond = secCeil;
-      sfx.playTick(secCeil);
+      if (secCeil <= 10) sfx.playTick(secCeil);
     }
 
     if (remainMs <= 0) {
@@ -716,21 +723,32 @@ const gameState = {
 
   settings: {
     totalRounds: 15,
+    questionSeconds: DEFAULT_QUESTION_SECONDS,
     categories: [...ALL_CATEGORIES]
   },
 
+  soloSeconds: DEFAULT_QUESTION_SECONDS,
+
   players: {},
-  roundWrongIds: new Set(), // track who already answered wrong in the active question
+  roundWrongIds: new Set(),
 
   currentRound: null,
   activeClientQId: null,
   myAnsweredRoundId: null,
   myChoiceIndex: null,
 
-  // Solo state
   soloIndex: 0,
   soloLifelines: { fifty: false, audience: false, friend: false, switchQ: false }
 };
+
+function getRoomDurationSec() {
+  const sec = Number(gameState.settings.questionSeconds);
+  return ALLOWED_TIME_OPTIONS.includes(sec) ? sec : 10;
+}
+
+function getRoomDurationMs() {
+  return getRoomDurationSec() * 1000;
+}
 
 function getSelectedProfile() {
   const rawName = $('inputPlayerName').value.trim();
@@ -1063,7 +1081,8 @@ function handleHostIncomingCmd(msg) {
 
     if (gameState.currentRound && !gameState.currentRound.resolved) {
       const r = gameState.currentRound;
-      const remainMs = Math.max(1500, QUESTION_DURATION_MS - (Date.now() - r.startedAt));
+      const durMs = r.durationMs || getRoomDurationMs();
+      const remainMs = Math.max(1500, durMs - (Date.now() - r.startedAt));
       broadcastRoomEvent({
         type: 'LATE_SYNC',
         targetId: p.id,
@@ -1074,6 +1093,7 @@ function handleHostIncomingCmd(msg) {
         q: r.q,
         options: r.options,
         source: r.source,
+        durationMs: durMs,
         remainMs,
         players: gameState.players
       });
@@ -1116,7 +1136,6 @@ async function hostStartMatch() {
     settings: gameState.settings
   });
 
-  // Ensure initial questions & let 3-2-1 countdown complete in parallel!
   await Promise.all([
     aiEngine.ensureReady(gameState.settings.categories, 3),
     new Promise((r) => setTimeout(r, 2250))
@@ -1144,6 +1163,9 @@ async function hostLaunchQuestion(roundNum) {
     return;
   }
 
+  const durSec = getRoomDurationSec();
+  const durMs = durSec * 1000;
+
   const qObj = await aiEngine.nextQuestion(gameState.settings.categories);
   const activeRound = {
     roundNum,
@@ -1153,6 +1175,8 @@ async function hostLaunchQuestion(roundNum) {
     options: qObj.options,
     answer: qObj.answer,
     source: qObj.source,
+    durationSec: durSec,
+    durationMs: durMs,
     startedAt: Date.now(),
     resolved: false,
     answeredBy: {},
@@ -1169,7 +1193,8 @@ async function hostLaunchQuestion(roundNum) {
     q: activeRound.q,
     options: activeRound.options,
     source: activeRound.source,
-    durationMs: QUESTION_DURATION_MS,
+    durationMs: durMs,
+    durationSec: durSec,
     players: gameState.players
   });
 
@@ -1181,13 +1206,14 @@ async function hostLaunchQuestion(roundNum) {
       type: 'ROUND_END',
       qId: activeRound.qId,
       reason: 'timeout',
+      durationSec: durSec,
       nextDelayMs: 2600,
       correctIndex: activeRound.answer,
       wrongPlayers: activeRound.wrongPlayers,
       players: gameState.players
     });
     gameState.hostNextRoundTimeout = setTimeout(() => hostLaunchQuestion(roundNum + 1), 2600);
-  }, QUESTION_DURATION_MS + 300);
+  }, durMs + 300);
 }
 
 function processHostAnswer(playerId, qId, choiceIndex) {
@@ -1203,7 +1229,8 @@ function processHostAnswer(playerId, qId, choiceIndex) {
     if (gameState.hostRoundTimeout) clearTimeout(gameState.hostRoundTimeout);
 
     gameState.players[playerId].score += 1;
-    const elapsedSec = Math.min(10, Math.max(0.1, (Date.now() - r.startedAt) / 1000)).toFixed(1);
+    const maxSec = r.durationSec || getRoomDurationSec();
+    const elapsedSec = Math.min(maxSec, Math.max(0.1, (Date.now() - r.startedAt) / 1000)).toFixed(1);
 
     publishHostRoomState('playing');
     broadcastRoomEvent({
@@ -1282,7 +1309,12 @@ function checkIfAllRemainingWrongAfterLeave() {
 function handleGuestStateSync(state) {
   if (!state || !state.players) return;
   gameState.players = state.players;
-  if (state.settings) gameState.settings = state.settings;
+  if (state.settings) {
+    gameState.settings = {
+      ...gameState.settings,
+      ...state.settings
+    };
+  }
   setLobbyBadge(false, '🟢 متصل بالغرفة بنجاح');
   updateLobbyUI();
   renderLiveScoreboard();
@@ -1316,7 +1348,7 @@ function handleRoomEvent(evt) {
 
   if (evt.type === 'MATCH_STARTING') {
     if (evt.players) gameState.players = evt.players;
-    if (evt.settings) gameState.settings = evt.settings;
+    if (evt.settings) gameState.settings = { ...gameState.settings, ...evt.settings };
     prepareGameStageUI('multi');
     setBanner('✨ جاري تحضير أسئلة متجددة بالذكاء الاصطناعي...', '');
     $('questionText').textContent = 'استعد! أول إجابة صحيحة تخطف النقطة...';
@@ -1329,7 +1361,7 @@ function handleRoomEvent(evt) {
     if (evt.players) gameState.players = evt.players;
     $('countdownOverlay').classList.add('hidden');
     prepareGameStageUI('multi');
-    renderMultiplayerQuestion(evt, evt.remainMs || evt.durationMs || QUESTION_DURATION_MS);
+    renderMultiplayerQuestion(evt, evt.remainMs || evt.durationMs || getRoomDurationMs());
     return;
   }
 
@@ -1456,7 +1488,8 @@ function revealRoundOutcome(evt) {
     sfx.playTimeout();
     setStudioMood('wrong');
     renderLiveScoreboard();
-    setBanner('⏱️ انتهت مهلة الـ 10 ثوانٍ! الانتقال للسؤال التالي...', 'banner-wrong');
+    const secLabel = formatArabicSeconds(evt.durationSec || getRoomDurationSec());
+    setBanner(`⏱️ انتهت مهلة الـ ${secLabel}! الانتقال للسؤال التالي...`, 'banner-wrong');
   }
 
   animateNextRoundBar(evt.nextDelayMs || 2600);
@@ -1544,6 +1577,9 @@ async function nextSoloQuestion() {
   gameState.currentRound = qObj;
   gameState.myAnsweredRoundId = null;
 
+  const soloSec = gameState.soloSeconds || 10;
+  const soloLabel = formatArabicSeconds(soloSec);
+
   $('roundProgressBadge').textContent = `السؤال ${gameState.soloIndex + 1} / 15`;
   $('soloPrizeBadge').textContent = `${SOLO_PRIZES[gameState.soloIndex]} $`;
   $('categoryBadge').textContent = `${qObj.source === 'ai' ? '✨' : '📚'} ${qObj.category}`;
@@ -1554,10 +1590,10 @@ async function nextSoloQuestion() {
   });
 
   resetOptionButtons(false);
-  setBanner(`💰 سؤال بقيمة ${SOLO_PRIZES[gameState.soloIndex]} $ — لديك 10 ثوانٍ!`, '');
+  setBanner(`💰 سؤال بقيمة ${SOLO_PRIZES[gameState.soloIndex]} $ — لديك ${soloLabel}!`, '');
   sfx.playQuestionReveal();
 
-  startVisualTimer(QUESTION_DURATION_MS, () => {
+  startVisualTimer(soloSec * 1000, () => {
     if (gameState.mode !== 'solo' || gameState.myAnsweredRoundId) return;
     gameState.myAnsweredRoundId = qObj.qId;
     sfx.playTimeout();
@@ -1565,7 +1601,7 @@ async function nextSoloQuestion() {
     setStudioMood('wrong');
     triggerStageShake();
     revealSoloButtons(qObj.answer, -1);
-    setBanner('⏱️ انتهى الوقت (10 ثوانٍ)! حظاً أوفر في الرحلة القادمة', 'banner-wrong');
+    setBanner(`⏱️ انتهى الوقت (${soloLabel})! حظاً أوفر في الرحلة القادمة`, 'banner-wrong');
     animateNextRoundBar(2400);
     setTimeout(() => renderSoloResult(false), 2400);
   });
@@ -1677,7 +1713,7 @@ function useSoloFriend() {
       <span style="font-size:1.8rem;">📞</span>
       <div>
         <strong style="color:#fff3b0;display:block;font-size:0.86rem;">صديقك الخبير على الخط:</strong>
-        <span style="font-size:0.86rem;color:#e0f2fe;">«بسرعة قبل انتهاء الـ 10 ثوانٍ! أنا متأكد بنسبة كبيرة أن الإجابة هي <strong>(${letters[q.answer]}) ${escapeHtml(q.options[q.answer])}</strong>!»</span>
+        <span style="font-size:0.86rem;color:#e0f2fe;">«بسرعة قبل انتهاء الوقت! أنا متأكد بنسبة كبيرة أن الإجابة هي <strong>(${letters[q.answer]}) ${escapeHtml(q.options[q.answer])}</strong>!»</span>
       </div>
     </div>
   `;
@@ -1737,6 +1773,12 @@ function renderAvatarStrip() {
   });
 }
 
+function syncSoloTimeUI() {
+  document.querySelectorAll('#soloTimeSelector .mini-pill-opt').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.sec) === gameState.soloSeconds);
+  });
+}
+
 function updateLobbyUI() {
   const list = $('lobbyPlayersList');
   const playersArr = Object.values(gameState.players);
@@ -1765,6 +1807,10 @@ function updateLobbyUI() {
 
   document.querySelectorAll('#roundCountSelector .pill-opt').forEach((btn) => {
     btn.classList.toggle('active', Number(btn.dataset.rounds) === gameState.settings.totalRounds);
+    btn.disabled = !gameState.isHost;
+  });
+  document.querySelectorAll('#timeLimitSelector .pill-opt').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.sec) === getRoomDurationSec());
     btn.disabled = !gameState.isHost;
   });
   document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
@@ -1821,7 +1867,6 @@ function renderMultiplayerPodium() {
   $('resultsTitle').textContent = top ? `بطل الغرفة: ${top.avatar} ${top.name}!` : 'انتهت الجولة!';
   $('resultsSubtitle').textContent = `الترتيب النهائي لـ ${sorted.length} ${sorted.length > 2 ? 'متسابقين' : 'متسابق'}`;
 
-  // Visual 3-Stage Podium when >= 2 players
   const vp = $('visualPodium');
   if (sorted.length >= 2) {
     vp.classList.remove('hidden');
@@ -1910,9 +1955,9 @@ function initApp() {
   $('btnSoundToggle').textContent = sfx.muted ? '🔇' : '🔊';
   renderAvatarStrip();
   renderHomeStats();
+  syncSoloTimeUI();
   updateSeenCountUI();
 
-  // Sound toggle
   $('btnSoundToggle').addEventListener('click', () => {
     sfx.muted = !sfx.muted;
     localStorage.setItem('mm_muted', sfx.muted ? '1' : '0');
@@ -1944,6 +1989,20 @@ function initApp() {
   });
   $('btnStartSolo').addEventListener('click', startSoloMillionaire);
 
+  // Solo configurable time selector (10 / 15 / 20 / 30s)
+  document.querySelectorAll('#soloTimeSelector .mini-pill-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      haptic('tap');
+      const sec = Number(btn.dataset.sec);
+      if (ALLOWED_TIME_OPTIONS.includes(sec)) {
+        gameState.soloSeconds = sec;
+        gameState.settings.questionSeconds = sec;
+        localStorage.setItem('mm_time_sec', String(sec));
+        syncSoloTimeUI();
+      }
+    });
+  });
+
   $('btnHomeBrand').addEventListener('click', () => {
     cleanupRoomSession();
     showView('home');
@@ -1958,7 +2017,6 @@ function initApp() {
   });
   $('btnHostFinishNow').addEventListener('click', hostEndMatchEarly);
 
-  // Solo mobile prize ladder toggle
   $('btnToggleLadder').addEventListener('click', () => {
     $('soloLadderPanel').classList.toggle('mobile-open');
   });
@@ -1966,7 +2024,6 @@ function initApp() {
     $('soloLadderPanel').classList.remove('mobile-open');
   });
 
-  // Copy & Share Room Code / Link / WhatsApp
   const copyCodeHandler = async () => {
     haptic('tap');
     try {
@@ -1999,11 +2056,11 @@ function initApp() {
 
   $('btnShareWhatsapp').addEventListener('click', () => {
     const shareUrl = `${location.origin}${location.pathname}?room=${encodeURIComponent(gameState.roomCode)}`;
-    const msg = `🏆 تعال نلعب «من سيربح المليون» أونلاين!\n🔑 كود الغرفة: *${gameState.roomCode}*\n⏱️ 10 ثوانٍ للسؤال والأسرع يكسب +1!\nاضغط للدخول فوراً:\n${shareUrl}`;
+    const secLabel = formatArabicSeconds(getRoomDurationSec());
+    const msg = `🏆 تعال نلعب «من سيربح المليون» أونلاين!\n🔑 كود الغرفة: *${gameState.roomCode}*\n⏱️ مهلة السؤال ${secLabel} والأسرع يكسب +1!\nاضغط للدخول فوراً:\n${shareUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   });
 
-  // Share final results
   $('btnShareResult').addEventListener('click', async () => {
     const title = $('resultsTitle').textContent;
     const sub = $('resultsSubtitle').textContent;
@@ -2017,7 +2074,7 @@ function initApp() {
     } catch {}
   });
 
-  // Host Lobby Settings
+  // Host Lobby Settings (Rounds, Time Limit, Categories)
   document.querySelectorAll('#roundCountSelector .pill-opt').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
@@ -2025,6 +2082,22 @@ function initApp() {
       gameState.settings.totalRounds = Number(btn.dataset.rounds);
       updateLobbyUI();
       publishHostRoomState('lobby');
+    });
+  });
+
+  document.querySelectorAll('#timeLimitSelector .pill-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!gameState.isHost) return;
+      haptic('tap');
+      const sec = Number(btn.dataset.sec);
+      if (ALLOWED_TIME_OPTIONS.includes(sec)) {
+        gameState.settings.questionSeconds = sec;
+        gameState.soloSeconds = sec;
+        localStorage.setItem('mm_time_sec', String(sec));
+        syncSoloTimeUI();
+        updateLobbyUI();
+        publishHostRoomState('lobby');
+      }
     });
   });
 
@@ -2164,7 +2237,7 @@ function initApp() {
     }
   });
 
-  // Support private client-side #key=... activation (never sent to server or stored in Git)
+  // Support private client-side #key=... activation
   if (location.hash && location.hash.includes('key=')) {
     const hashParams = new URLSearchParams(location.hash.slice(1));
     const hk = hashParams.get('key');

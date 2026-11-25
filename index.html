@@ -167,7 +167,16 @@
           <div class="solo-info">
             <span class="solo-badge">طور فردي كلاسيكي • 15 سؤالاً</span>
             <h3>رحلة المليون الفردية مع وسائل المساعدة</h3>
-            <p>اختبر ثقافتك بـ 10 ثوانٍ للسؤال مع شجرة الجوائز، حذف إجابتين 50:50، رأي الجمهور، اتصال بصديق، وتغيير السؤال!</p>
+            <p>اختبر ثقافتك مع شجرة الجوائز، حذف إجابتين 50:50، رأي الجمهور، اتصال بصديق، وتغيير السؤال!</p>
+            <div class="solo-time-row">
+              <span class="solo-time-label">⏱️ مهلة السؤال:</span>
+              <div class="mini-pill-selector" id="soloTimeSelector">
+                <button type="button" class="mini-pill-opt active" data-sec="10">10 ث</button>
+                <button type="button" class="mini-pill-opt" data-sec="15">15 ث</button>
+                <button type="button" class="mini-pill-opt" data-sec="20">20 ث</button>
+                <button type="button" class="mini-pill-opt" data-sec="30">30 ث</button>
+              </div>
+            </div>
           </div>
         </div>
         <button id="btnStartSolo" class="hex-action-btn outline-gold-btn">💰 ابدأ رحلة المليون</button>
@@ -177,8 +186,8 @@
       <div class="rules-grid">
         <div class="rule-card">
           <span class="rule-ico">⏱️</span>
-          <strong>10 ثوانٍ فقط</strong>
-          <small>مهلة إجمالية حماسية لكل سؤال</small>
+          <strong>10 إلى 30 ثانية</strong>
+          <small>مهلة قابلة للتخصيص لكل سؤال</small>
         </div>
         <div class="rule-card rule-win">
           <span class="rule-ico">⚡</span>
@@ -263,6 +272,16 @@
           </div>
 
           <div class="setting-group">
+            <label class="field-label">⏱️ مهلة الإجابة لكل سؤال</label>
+            <div class="pill-selector" id="timeLimitSelector">
+              <button type="button" class="pill-opt active" data-sec="10">10 ثوانٍ</button>
+              <button type="button" class="pill-opt" data-sec="15">15 ثانية</button>
+              <button type="button" class="pill-opt" data-sec="20">20 ثانية</button>
+              <button type="button" class="pill-opt" data-sec="30">30 ثانية</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
             <label class="field-label">تصنيفات الأسئلة المتجددة</label>
             <div class="category-chips" id="categorySelector">
               <button type="button" class="cat-chip active" data-cat="تاريخ">🏛️ تاريخ</button>
@@ -301,7 +320,7 @@
               <span id="roundProgressBadge" class="hud-pill">1 / 15</span>
             </div>
 
-            <!-- Dramatic 10-Second Broadcast Timer Orb -->
+            <!-- Dramatic Broadcast Timer Orb -->
             <div class="timer-orb-wrap" id="timerOrbWrap">
               <div class="timer-pulse-halo"></div>
               <svg class="timer-svg" viewBox="0 0 100 100">
@@ -320,7 +339,7 @@
             </div>
           </div>
 
-          <!-- High-Precision 10s Progress Rail -->
+          <!-- High-Precision Progress Rail -->
           <div class="time-bar-track">
             <div id="timeBarFill" class="time-bar-fill"></div>
           </div>
@@ -437,7 +456,7 @@
           </div>
         </div>
 
-        <!-- Solo Prize Ladder Side Panel (Desktop persistent / Mobile toggleable drawer) -->
+        <!-- Solo Prize Ladder Side Panel -->
         <aside id="soloLadderPanel" class="glass-card solo-ladder-panel hidden" aria-label="شجرة جوائز المليون">
           <div class="ladder-head">
             <h3>🏆 شجرة المليون</h3>
@@ -478,7 +497,7 @@
         <h3 id="settingsModalTitle">⚙️ إعدادات التوليد الذكي واللعبة</h3>
         <button id="btnCloseSettings" class="icon-btn">✖</button>
       </div>
-      <p class="modal-desc">أدخل مفتاح التوليد الذكي (Gemini / Vertex Express) لتجديد الأسئلة مباشرة في كل جولة، ويُحفظ المفتاح محلياً على جهازك فقط. كما تُحفظ الأسئلة السابقة لمنع التكرار.</p>
+      <p class="modal-desc">أدخل مفتاح التوليد الذكي لتجديد الأسئلة مباشرة في كل جولة، ويُحفظ المفتاح محلياً على جهازك فقط. كما تُحفظ الأسئلة السابقة لمنع التكرار.</p>
 
       <label class="field-label" for="inputApiKey">مفتاح تجديد الأسئلة بالذكاء الاصطناعي</label>
       <div class="key-input-row">
