@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#070c29" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="من سيربح المليون" />
+  <meta name="description" content="لعبة من سيربح المليون أونلاين بأسئلة متجددة بالذكاء الاصطناعي وغرف مالتي بلاير بالأكواد عبر أي شبكة" />
+  <title>من سيربح المليون | تحدي الغرف أونلاين</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- MQTT over WSS for cross-network multiplayer rooms (works across Wi-Fi, 4G, 5G, and NATs) -->
+  <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
+</head>
+<body>
+  <!-- Studio Spotlights Background -->
+  <div class="studio-bg" aria-hidden="true">
+    <div class="beam beam-1"></div>
+    <div class="beam beam-2"></div>
+    <div class="beam beam-3"></div>
+    <div class="studio-rings"></div>
+  </div>
+
+  <!-- Floating Emoji / Toast Layer -->
+  <div id="floatingReactions" class="floating-reactions" aria-hidden="true"></div>
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Top App Bar -->
+  <header class="topbar">
+    <div class="brand" id="btnHomeBrand" title="العودة للرئيسية">
+      <img src="./icon.svg" alt="شعار من سيربح المليون" class="brand-logo" />
+      <div class="brand-txt">
+        <span class="brand-title">من سيربح المليون</span>
+        <span class="brand-sub" id="aiStatusPill">✨ أسئلة متجددة بالذكاء الاصطناعي</span>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btnInstallPwa" class="icon-pill hidden" title="تثبيت التطبيق على جهازك">
+        <span>📲</span> <span class="hide-xs">تثبيت التطبيق</span>
+      </button>
+      <button id="btnSoundToggle" class="icon-btn" title="تشغيل / كتم الصوت" aria-label="الصوت">🔊</button>
+      <button id="btnSettings" class="icon-btn" title="الإعدادات وحالة الذكاء الاصطناعي" aria-label="الإعدادات">⚙️</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <!-- ==================== VIEW 1: HOME ==================== -->
+    <section id="viewHome" class="view active">
+      <div class="hero-emblem">
+        <div class="emblem-glow"></div>
+        <img src="./icon.svg" alt="من سيربح المليون" class="hero-logo" />
+        <h1 class="hero-heading">تحدي المليونير أونلاين</h1>
+        <p class="hero-tagline">أسئلة متجددة كل مرة في التاريخ • الجغرافيا • الإسلاميات • الرياضة • المعلومات العامة • الذكاء IQ</p>
+      </div>
+
+      <!-- Player Profile Card -->
+      <div class="glass-card profile-card">
+        <label class="field-label" for="inputPlayerName">اسم المتسابق ورمزك</label>
+        <div class="profile-row">
+          <button type="button" id="btnCycleAvatar" class="avatar-picker" title="اضغط لتغيير الرمز">👑</button>
+          <input type="text" id="inputPlayerName" class="text-input" maxlength="18" placeholder="اكتب اسمك هنا..." autocomplete="nickname" />
+        </div>
+      </div>
+
+      <!-- Mode Grid -->
+      <div class="home-actions-grid">
+        <!-- Create Room -->
+        <div class="glass-card mode-card highlight-gold">
+          <div class="mode-icon">🏟️</div>
+          <h2>إنشاء غرفة مالتي بلاير</h2>
+          <p>أنشئ غرفة بكود خاص وشاركه مع أصدقائك من أي شبكة. الأسرع إجابةً صحيحة يخطف <strong>+1</strong> والمتسرع الخاطئ يخسر <strong>-1</strong>!</p>
+          <button id="btnCreateRoom" class="hex-action-btn gold-btn">
+            <span>إنشاء غرفة جديدة</span>
+          </button>
+        </div>
+
+        <!-- Join Room -->
+        <div class="glass-card mode-card">
+          <div class="mode-icon">🔑</div>
+          <h2>دخول غرفة بكود</h2>
+          <p>أدخل كود الغرفة المكون من 5 أرقام للانضمام الفوري للمسابقة من أي موبايل أو كمبيوتر.</p>
+          <div class="join-row">
+            <input type="text" id="inputRoomCode" class="code-input" maxlength="6" inputmode="numeric" placeholder="كود الغرفة (مثلاً 48291)" />
+            <button id="btnJoinRoom" class="hex-action-btn blue-btn">انضمام</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solo Millionaire Mode -->
+      <div class="glass-card solo-banner">
+        <div class="solo-info">
+          <span class="solo-badge">طور فردي كلاسيكي</span>
+          <h3>💰 رحلة المليون الفردية (15 سؤالاً + وسائل المساعدة)</h3>
+          <p>اختبر ثقافتك وسرعة بديهتك في 10 ثوانٍ للسؤال مع حذف إجابتين ورأي الجمهور واتصال بصديق!</p>
+        </div>
+        <button id="btnStartSolo" class="hex-action-btn outline-gold-btn">ابدأ رحلة المليون</button>
+      </div>
+
+      <!-- Rules Quick Strip -->
+      <div class="rules-strip">
+        <div class="rule-chip">⏱️ <strong>10 ثوانٍ</strong> لكل سؤال</div>
+        <div class="rule-chip">⚡ أول إجابة صح = <strong>+1 نقطة</strong></div>
+        <div class="rule-chip">❌ إجابة غلط = <strong>-1 نقطة</strong> والفرصة لغيرك</div>
+        <div class="rule-chip">🔄 لو الكل أخطأ = <strong>يتغير السؤال فوراً</strong></div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: MULTIPLAYER LOBBY ==================== -->
+    <section id="viewLobby" class="view">
+      <div class="glass-card lobby-header-card">
+        <div class="lobby-top-row">
+          <button id="btnLeaveLobby" class="mini-btn danger-mini">🚪 مغادرة الغرفة</button>
+          <span id="networkStatusBadge" class="net-badge connecting">🔄 جاري الاتصال بالغرفة...</span>
+        </div>
+
+        <div class="room-code-showcase">
+          <span class="room-code-label">كود الغرفة للدخول من أي شبكة</span>
+          <div class="room-code-box">
+            <span id="displayRoomCode" class="room-code-digits">-----</span>
+          </div>
+          <div class="share-btns-row">
+            <button id="btnCopyCode" class="mini-btn gold-mini">📋 نسخ الكود</button>
+            <button id="btnShareLink" class="mini-btn blue-mini">🔗 مشاركة رابط مباشر</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-columns">
+        <!-- Players in Room -->
+        <div class="glass-card lobby-players-card">
+          <div class="card-title-row">
+            <h3>👥 المتسابقون في الغرفة (<span id="lobbyPlayerCount">1</span>)</h3>
+            <div class="emoji-bar">
+              <button class="emoji-trigger" data-emoji="🔥">🔥</button>
+              <button class="emoji-trigger" data-emoji="👑">👑</button>
+              <button class="emoji-trigger" data-emoji="⚡">⚡</button>
+              <button class="emoji-trigger" data-emoji="😂">😂</button>
+              <button class="emoji-trigger" data-emoji="👏">👏</button>
+            </div>
+          </div>
+          <ul id="lobbyPlayersList" class="lobby-players-list"></ul>
+        </div>
+
+        <!-- Room Settings (Editable by Host, Read-only for Guests) -->
+        <div class="glass-card lobby-settings-card">
+          <h3>🎯 إعدادات المسابقة</h3>
+          <div class="setting-group">
+            <label class="field-label">عدد أسئلة الجولة</label>
+            <div class="pill-selector" id="roundCountSelector">
+              <button type="button" class="pill-opt" data-rounds="10">10 أسئلة</button>
+              <button type="button" class="pill-opt active" data-rounds="15">15 سؤالاً</button>
+              <button type="button" class="pill-opt" data-rounds="25">25 سؤالاً</button>
+              <button type="button" class="pill-opt" data-rounds="999">مفتوح ∞</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="field-label">تصنيفات الأسئلة (اضغط للتخصيص)</label>
+            <div class="category-chips" id="categorySelector">
+              <button type="button" class="cat-chip active" data-cat="تاريخ">🏛️ تاريخ</button>
+              <button type="button" class="cat-chip active" data-cat="جغرافيا">🌍 جغرافيا</button>
+              <button type="button" class="cat-chip active" data-cat="إسلامي">🕌 إسلامي</button>
+              <button type="button" class="cat-chip active" data-cat="رياضة">⚽ رياضة</button>
+              <button type="button" class="cat-chip active" data-cat="معلومات عامة">💡 عامة وعلوم</button>
+              <button type="button" class="cat-chip active" data-cat="ذكاء IQ">🧠 ذكاء IQ</button>
+            </div>
+          </div>
+
+          <div id="hostControlsArea" class="host-start-area">
+            <button id="btnHostStartGame" class="hex-action-btn gold-btn pulse-btn">
+              🚀 ابدأ المسابقة الآن!
+            </button>
+            <p class="hint-text">سيتم توليد حزمة أسئلة جديدة بالذكاء الاصطناعي فور البدء</p>
+          </div>
+          <div id="guestWaitingArea" class="guest-wait-area hidden">
+            <div class="spinner-ring"></div>
+            <p>بانتظار مضيف الغرفة (<strong id="hostNameLabel">...</strong>) لبدء الجولة...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: GAME STAGE (MULTIPLAYER & SOLO) ==================== -->
+    <section id="viewGame" class="view">
+      <!-- Top Game HUD -->
+      <div class="game-hud">
+        <div class="hud-right">
+          <button id="btnQuitMatch" class="mini-btn danger-mini" title="إنهاء / خروج">✖ خروج</button>
+          <span id="roundProgressBadge" class="hud-pill">السؤال 1 / 15</span>
+        </div>
+
+        <!-- Dramatic 10-Second Circular Timer -->
+        <div class="timer-orb-wrap" id="timerOrbWrap">
+          <svg class="timer-svg" viewBox="0 0 100 100">
+            <circle class="timer-track" cx="50" cy="50" r="43"></circle>
+            <circle class="timer-progress" id="timerCircle" cx="50" cy="50" r="43"></circle>
+          </svg>
+          <div class="timer-number" id="timerNumber">10</div>
+        </div>
+
+        <div class="hud-left">
+          <span id="categoryBadge" class="hud-pill gold-pill">✨ متنوع</span>
+          <span id="soloPrizeBadge" class="hud-pill prize-pill hidden">100 $</span>
+        </div>
+      </div>
+
+      <!-- Linear 10s Progress Bar -->
+      <div class="time-bar-track">
+        <div id="timeBarFill" class="time-bar-fill"></div>
+      </div>
+
+      <!-- Live Scoreboard Strip (Multiplayer) -->
+      <div id="liveScoreboard" class="live-scoreboard"></div>
+
+      <!-- Solo Lifelines Strip (Solo Mode Only) -->
+      <div id="soloLifelines" class="lifelines-bar hidden">
+        <button id="ll5050" class="lifeline-btn" title="حذف إجابتين"><span>50:50</span><small>حذف إجابتين</small></button>
+        <button id="llAudience" class="lifeline-btn" title="رأي الجمهور"><span>📊</span><small>رأي الجمهور</small></button>
+        <button id="llFriend" class="lifeline-btn" title="اتصال بصديق"><span>📞</span><small>اتصال بصديق</small></button>
+        <button id="llSwitch" class="lifeline-btn" title="تغيير السؤال"><span>🔄</span><small>تغيير السؤال</small></button>
+      </div>
+
+      <!-- Live Event Banner (e.g. Player answered wrong -1, Winner +1, Loading AI) -->
+      <div id="stageStatusBanner" class="stage-status-banner">استعد للسؤال!</div>
+
+      <!-- Classic Millionaire Hexagonal Stage -->
+      <div class="millionaire-stage">
+        <div class="hex-question-row">
+          <span class="stage-line"></span>
+          <div class="hex-question-box" id="questionBox">
+            <p id="questionText" class="question-text">جاري تحضير أسئلة متجددة بالذكاء الاصطناعي...</p>
+          </div>
+          <span class="stage-line"></span>
+        </div>
+
+        <!-- Helper Panel (Audience Poll / Phone a Friend in Solo Mode) -->
+        <div id="soloHelperBox" class="solo-helper-box hidden"></div>
+
+        <!-- 4 Hexagonal Answer Options -->
+        <div class="answers-grid" id="answersGrid">
+          <div class="hex-option-wrap">
+            <span class="stage-line-sm"></span>
+            <button type="button" class="hex-option" data-idx="0">
+              <span class="opt-letter">أ</span>
+              <span class="opt-diamond">◆</span>
+              <span class="opt-text" id="optText0">---</span>
+            </button>
+            <span class="stage-line-sm"></span>
+          </div>
+
+          <div class="hex-option-wrap">
+            <span class="stage-line-sm"></span>
+            <button type="button" class="hex-option" data-idx="1">
+              <span class="opt-letter">ب</span>
+              <span class="opt-diamond">◆</span>
+              <span class="opt-text" id="optText1">---</span>
+            </button>
+            <span class="stage-line-sm"></span>
+          </div>
+
+          <div class="hex-option-wrap">
+            <span class="stage-line-sm"></span>
+            <button type="button" class="hex-option" data-idx="2">
+              <span class="opt-letter">ج</span>
+              <span class="opt-diamond">◆</span>
+              <span class="opt-text" id="optText2">---</span>
+            </button>
+            <span class="stage-line-sm"></span>
+          </div>
+
+          <div class="hex-option-wrap">
+            <span class="stage-line-sm"></span>
+            <button type="button" class="hex-option" data-idx="3">
+              <span class="opt-letter">د</span>
+              <span class="opt-diamond">◆</span>
+              <span class="opt-text" id="optText3">---</span>
+            </button>
+            <span class="stage-line-sm"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Reaction Bar in Multiplayer Game -->
+      <div id="inGameEmojiBar" class="ingame-emoji-bar">
+        <button class="emoji-trigger" data-emoji="🔥">🔥</button>
+        <button class="emoji-trigger" data-emoji="⚡">⚡</button>
+        <button class="emoji-trigger" data-emoji="😱">😱</button>
+        <button class="emoji-trigger" data-emoji="😂">😂</button>
+        <button class="emoji-trigger" data-emoji="👏">👏</button>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: RESULTS / PODIUM ==================== -->
+    <section id="viewResults" class="view">
+      <div class="glass-card results-card">
+        <div class="trophy-icon" id="resultsTrophy">🏆</div>
+        <h2 id="resultsTitle" class="results-title">انتهت المسابقة!</h2>
+        <p id="resultsSubtitle" class="results-subtitle">ترتيب المتسابقين النهائي</p>
+
+        <div id="podiumContainer" class="podium-list"></div>
+
+        <div class="results-actions">
+          <button id="btnPlayAgain" class="hex-action-btn gold-btn">🔄 جولة جديدة بأسئلة متجددة</button>
+          <button id="btnBackHome" class="hex-action-btn blue-btn">🏠 الصفحة الرئيسية</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="glass-card modal-card">
+      <div class="card-title-row">
+        <h3>⚙️ إعدادات اللعبة والذكاء الاصطناعي</h3>
+        <button id="btnCloseSettings" class="icon-btn">✖</button>
+      </div>
+      <p class="modal-desc">اللعبة متصلة مسبقاً بمفتاح التوليد الذكي لتجديد الأسئلة تلقائياً في كل جولة، مع حفظ سجل الأسئلة السابقة لمنع التكرار.</p>
+
+      <label class="field-label" for="inputApiKey">مفتاح تجديد الأسئلة (Gemini / Vertex Express Key)</label>
+      <input type="password" id="inputApiKey" class="text-input ltr-input" autocomplete="off" />
+
+      <div class="modal-stats">
+        <span>عدد الأسئلة المحفوظة لمنع التكرار: <strong id="seenQuestionsCount">0</strong></span>
+        <button id="btnClearSeen" class="mini-btn danger-mini">مسح السجل</button>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnTestAi" class="mini-btn blue-mini">🧪 اختبار توليد سؤال الآن</button>
+        <button id="btnSaveSettings" class="mini-btn gold-mini">💾 حفظ وإغلاق</button>
+      </div>
+      <p id="testAiOutput" class="test-ai-output"></p>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
