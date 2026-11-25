@@ -20,6 +20,8 @@ const SOLO_PRIZES = [
   '2,000', '4,000', '8,000', '16,000', '32,000',
   '64,000', '125,000', '250,000', '500,000', '1,000,000'
 ];
+const SOLO_PRIZE_VALUES = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
+const SAFE_INDICES = new Set([4, 9, 14]); // 1,000 / 32,000 / 1,000,000
 
 const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
 
@@ -32,6 +34,154 @@ const SUBTOPIC_SEEDS = [
   'عجائب الطبيعة والجزر والقارات وأحداث القرن العشرين الكبرى',
   'القرآن الكريم وعلومه واللغة العربية وأسئلة ذكاء منطقي سريع'
 ];
+
+/* =========================================================================
+   HAPTICS, MOOD LIGHTING & CONFETTI PARTICLE ENGINE
+   ========================================================================= */
+function haptic(kind) {
+  if (!navigator.vibrate) return;
+  try {
+    if (kind === 'tap') navigator.vibrate(14);
+    else if (kind === 'win') navigator.vibrate([25, 35, 55]);
+    else if (kind === 'wrong') navigator.vibrate([80, 40, 80]);
+    else if (kind === 'tick') navigator.vibrate(10);
+  } catch {}
+}
+
+function setStudioMood(mood = 'idle') {
+  document.body.dataset.mood = mood;
+}
+
+function triggerStageShake() {
+  const stage = document.getElementById('millionaireStage');
+  if (!stage) return;
+  stage.classList.remove('shake');
+  void stage.offsetWidth;
+  stage.classList.add('shake');
+}
+
+class ParticleFX {
+  constructor() {
+    this.canvas = document.getElementById('fxCanvas');
+    this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+    this.particles = [];
+    this.running = false;
+    if (this.canvas) {
+      this.resize();
+      window.addEventListener('resize', () => this.resize());
+    }
+  }
+
+  resize() {
+    if (!this.canvas) return;
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+
+  burst(count = 55, palette = ['#fff3b0', '#f6c038', '#34d399', '#38bdf8', '#ffffff']) {
+    if (!this.ctx) return;
+    const cx = this.canvas.width * 0.5;
+    const cy = this.canvas.height * 0.36;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2.4 + Math.random() * 6.8;
+      this.particles.push({
+        x: cx + (Math.random() - 0.5) * 90,
+        y: cy + (Math.random() - 0.5) * 40,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2.6,
+        size: 4 + Math.random() * 5,
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 0.25,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        life: 1,
+        decay: 0.011 + Math.random() * 0.012
+      });
+    }
+    if (!this.running) {
+      this.running = true;
+      requestAnimationFrame(() => this.loop());
+    }
+  }
+
+  loop() {
+    if (!this.ctx) return;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.16; // gentle gravity
+      p.vx *= 0.99;
+      p.rot += p.vrot;
+      p.life -= p.decay;
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+      this.ctx.save();
+      this.ctx.globalAlpha = Math.max(0, p.life);
+      this.ctx.translate(p.x, p.y);
+      this.ctx.rotate(p.rot);
+      this.ctx.fillStyle = p.color;
+      this.ctx.fillRect(-p.size / 2, -p.size * 0.35, p.size, p.size * 0.7);
+      this.ctx.restore();
+    }
+    if (this.particles.length > 0) {
+      requestAnimationFrame(() => this.loop());
+    } else {
+      this.running = false;
+    }
+  }
+}
+
+const fx = new ParticleFX();
+
+/* =========================================================================
+   PERSONAL STATS PERSISTENCE
+   ========================================================================= */
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem('mm_stats_v1') || '{"roomWins":0,"bestSolo":0,"totalCorrect":0}');
+  } catch {
+    return { roomWins: 0, bestSolo: 0, totalCorrect: 0 };
+  }
+}
+
+function saveStats(stats) {
+  localStorage.setItem('mm_stats_v1', JSON.stringify(stats));
+  renderHomeStats();
+}
+
+function recordCorrectStat() {
+  const s = loadStats();
+  s.totalCorrect += 1;
+  saveStats(s);
+}
+
+function recordRoomWinStat() {
+  const s = loadStats();
+  s.roomWins += 1;
+  saveStats(s);
+}
+
+function recordSoloBestStat(amount) {
+  const s = loadStats();
+  if (amount > s.bestSolo) {
+    s.bestSolo = amount;
+    saveStats(s);
+  }
+}
+
+function renderHomeStats() {
+  const s = loadStats();
+  const rw = $('statRoomWins');
+  const bs = $('statBestSolo');
+  const tc = $('statTotalCorrect');
+  if (rw) rw.textContent = String(s.roomWins || 0);
+  if (bs) bs.textContent = `${Number(s.bestSolo || 0).toLocaleString('en-US')} $`;
+  if (tc) tc.textContent = String(s.totalCorrect || 0);
+}
 
 /* =========================================================================
    WEB AUDIO SYNTHESIZER (Millionaire Studio Sound Effects)
@@ -72,7 +222,11 @@ class StudioAudio {
   }
 
   playIntro() {
-    [261.6, 329.6, 392.0, 523.2].forEach((f, i) => this.tone(f, 0.28, 'triangle', 0.13, i * 0.09));
+    [261.6, 329.6, 392.0, 523.2].forEach((f, i) => this.tone(f, 0.28, 'triangle', 0.13, i * 0.085));
+  }
+
+  playCountdownBeat(final = false) {
+    this.tone(final ? 880 : 440, final ? 0.28 : 0.12, 'triangle', final ? 0.15 : 0.1);
   }
 
   playQuestionReveal() {
@@ -83,16 +237,17 @@ class StudioAudio {
 
   playTick(secondsLeft) {
     const urgent = secondsLeft <= 3;
-    this.tone(urgent ? 880 : 560, urgent ? 0.09 : 0.055, urgent ? 'square' : 'sine', urgent ? 0.08 : 0.045);
+    this.tone(urgent ? 900 : 560, urgent ? 0.095 : 0.055, urgent ? 'square' : 'sine', urgent ? 0.08 : 0.045);
+    if (urgent) haptic('tick');
   }
 
   playCorrect() {
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, 0.26, 'triangle', 0.15, i * 0.075));
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => this.tone(f, 0.26, 'triangle', 0.15, i * 0.072));
   }
 
   playWrong() {
-    this.tone(185, 0.26, 'sawtooth', 0.14, 0);
-    this.tone(138, 0.38, 'sawtooth', 0.15, 0.14);
+    this.tone(185, 0.25, 'sawtooth', 0.14, 0);
+    this.tone(135, 0.38, 'sawtooth', 0.15, 0.14);
   }
 
   playTimeout() {
@@ -136,7 +291,6 @@ function normalizeAndShuffleQuestion(raw, source = 'ai') {
   if (!Number.isInteger(ansIdx) || ansIdx < 0 || ansIdx > 3) ansIdx = 0;
   if (cleanOpts.some((o) => !o)) return null;
 
-  // Shuffle options so correct choice is uniformly distributed across أ / ب / ج / د
   const tagged = cleanOpts.map((text, idx) => ({ text, isCorrect: idx === ansIdx }));
   for (let i = tagged.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -156,7 +310,6 @@ function normalizeAndShuffleQuestion(raw, source = 'ai') {
 function generateDynamicIQQuestion() {
   const type = Math.floor(Math.random() * 3);
   if (type === 0) {
-    // Arithmetic progression with increasing step: a, a+d, a+3d, a+6d, a+10d
     const start = Math.floor(2 + Math.random() * 9);
     const step = Math.floor(2 + Math.random() * 4);
     const seq = [start];
@@ -166,7 +319,6 @@ function generateDynamicIQQuestion() {
     return { category: 'ذكاء IQ', q: `أكمل المتتالية الذهنية: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
   }
   if (type === 1) {
-    // x * a + b = target
     const x = Math.floor(4 + Math.random() * 9);
     const a = Math.floor(3 + Math.random() * 5);
     const b = Math.floor(4 + Math.random() * 12);
@@ -174,7 +326,6 @@ function generateDynamicIQQuestion() {
     const opts = [String(x), String(x + 1), String(x - 1), String(x + 2)];
     return { category: 'ذكاء IQ', q: `ما العدد الذي إذا ضربته في ${a} ثم أضفتَ إليه ${b} كان الناتج ${target}؟`, options: opts, answer: 0 };
   }
-  // Geometric + offset: n -> 2n + 1
   const s = Math.floor(2 + Math.random() * 5);
   const seq = [s, s * 2 + 1, (s * 2 + 1) * 2 + 1, ((s * 2 + 1) * 2 + 1) * 2 + 1];
   const ans = seq[3] * 2 + 1;
@@ -193,6 +344,7 @@ class AIQuestionGenerator {
 
   clearQueue() {
     this.queue = [];
+    updateLobbyReadyIndicator();
   }
 
   async fetchBatchFromGemini(categories = ALL_CATEGORIES, count = 8) {
@@ -242,18 +394,9 @@ class AIQuestionGenerator {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 14000);
 
-        const bodyObj = {
-          model,
-          input: prompt,
-          store: false
-        };
-        // Structured JSON schema supported natively on Interactions v1
+        const bodyObj = { model, input: prompt, store: false };
         if (!model.startsWith('gemma-')) {
-          bodyObj.response_format = {
-            type: 'text',
-            mime_type: 'application/json',
-            schema
-          };
+          bodyObj.response_format = { type: 'text', mime_type: 'application/json', schema };
         } else {
           bodyObj.input += '\nأجب بصيغة JSON فقط بهذا الشكل: {"questions":[{"category":"...","q":"...","options":["1","2","3","4"],"answer":0}]}';
         }
@@ -311,26 +454,30 @@ class AIQuestionGenerator {
 
   pullFallbackQuestion(categories = ALL_CATEGORIES) {
     const cats = new Set(categories.length ? categories : ALL_CATEGORIES);
-    // 25% chance when IQ is enabled to synthesize a brand-new mental-math / sequence IQ puzzle for 10s play
     if (cats.has('ذكاء IQ') && Math.random() < 0.25) {
       const iqDynamic = generateDynamicIQQuestion();
       if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai');
     }
     const seen = new Set(getSeenQuestions());
     let pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && !seen.has(q.q.slice(0, 90)));
-    if (!pool.length) {
-      pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category));
-    }
+    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category));
     if (!pool.length) pool = FALLBACK_QUESTIONS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     return normalizeAndShuffleQuestion(pick, 'bank');
   }
 
   async ensureReady(categories = ALL_CATEGORIES, minInitial = 5) {
-    if (!getApiKey()) return;
-    if (this.queue.length >= minInitial) return;
+    if (!getApiKey()) {
+      updateLobbyReadyIndicator();
+      return;
+    }
+    if (this.queue.length >= minInitial) {
+      updateLobbyReadyIndicator();
+      return;
+    }
     if (this.isFetching) return;
     this.isFetching = true;
+    updateLobbyReadyIndicator();
     try {
       const fresh = await this.fetchBatchFromGemini(categories, 8);
       this.queue.push(...fresh);
@@ -338,6 +485,7 @@ class AIQuestionGenerator {
       console.warn('AI batch fallback triggered:', e.message);
     } finally {
       this.isFetching = false;
+      updateLobbyReadyIndicator();
     }
   }
 
@@ -345,11 +493,13 @@ class AIQuestionGenerator {
     if (this.queue.length === 0 && getApiKey()) {
       await this.ensureReady(categories, 1);
     }
-    // Pre-fetch next batch silently in background when queue runs low
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
       this.isFetching = true;
       this.fetchBatchFromGemini(categories, 8)
-        .then((fresh) => this.queue.push(...fresh))
+        .then((fresh) => {
+          this.queue.push(...fresh);
+          updateLobbyReadyIndicator();
+        })
         .catch(() => {})
         .finally(() => { this.isFetching = false; });
     }
@@ -364,7 +514,7 @@ class AIQuestionGenerator {
 const aiEngine = new AIQuestionGenerator();
 
 /* =========================================================================
-   STATE & DOM REFERENCES
+   STATE & DOM HELPERS
    ========================================================================= */
 const myProfile = {
   id: sessionStorage.getItem('mm_pid') || ('p_' + Math.random().toString(36).slice(2, 10)),
@@ -384,6 +534,7 @@ const views = {
 
 function showView(name) {
   Object.entries(views).forEach(([k, el]) => el.classList.toggle('active', k === name));
+  if (name !== 'game') setStudioMood('idle');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -405,25 +556,93 @@ function spawnFloatingEmoji(emoji, label = '') {
   el.className = 'float-emoji';
   el.style.left = `${12 + Math.random() * 76}%`;
   el.textContent = label ? `${emoji} ${label}` : emoji;
-  if (label) el.style.fontSize = '1.15rem';
+  if (label) el.style.fontSize = '1.12rem';
   wrap.appendChild(el);
   setTimeout(() => el.remove(), 2300);
 }
 
 function setAiStatusPill(ok, modelName = '') {
   const pill = $('aiStatusPill');
+  if (!pill) return;
   if (ok) {
-    pill.textContent = `✨ أسئلة متجددة بالذكاء الاصطناعي (${modelName.replace('gemini-', 'Gemini ')})`;
+    pill.innerHTML = `<span class="ai-dot"></span> ذكاء اصطناعي حي (${escapeHtml(modelName.replace('gemini-', 'Gemini '))})`;
     pill.style.color = '#6ee7b7';
   } else {
-    pill.textContent = '✨ أسئلة متجددة ذكياً (وضع احتياطي سريع)';
+    pill.innerHTML = `<span class="ai-dot" style="background:#f6c038;box-shadow:0 0 8px #f6c038"></span> بنك متجدد ذكياً + ألغاز IQ`;
     pill.style.color = '#fcd34d';
+  }
+}
+
+function updateLobbyReadyIndicator() {
+  const el = $('lobbyAiReadyPill');
+  if (!el) return;
+  if (aiEngine.isFetching) {
+    el.textContent = '⏳ جاري توليد حزمة أسئلة جديدة...';
+    el.classList.remove('is-ready');
+  } else if (aiEngine.queue.length > 0) {
+    el.textContent = `✨ جاهز (${aiEngine.queue.length} سؤال ذكاء اصطناعي)`;
+    el.classList.add('is-ready');
+  } else if (getApiKey()) {
+    el.textContent = '✨ مفتاح التوليد مفعّل';
+    el.classList.add('is-ready');
+  } else {
+    el.textContent = '📚 بنك 110+ سؤال متنوع جاهز';
+    el.classList.add('is-ready');
   }
 }
 
 function updateSeenCountUI() {
   const el = $('seenQuestionsCount');
   if (el) el.textContent = String(getSeenQuestions().length);
+}
+
+function runCountdownOverlay(caption = 'استعد للتحدي!') {
+  return new Promise((resolve) => {
+    const overlay = $('countdownOverlay');
+    const digit = $('countdownDigit');
+    const cap = $('countdownCaption');
+    cap.textContent = caption;
+    overlay.classList.remove('hidden');
+
+    const steps = ['3', '2', '1', 'انطلق!'];
+    let i = 0;
+    const stepFn = () => {
+      const val = steps[i];
+      digit.textContent = val;
+      digit.style.animation = 'none';
+      void digit.offsetWidth;
+      digit.style.animation = 'popDigit 0.42s cubic-bezier(0.2, 1.3, 0.4, 1)';
+      sfx.playCountdownBeat(i === steps.length - 1);
+      haptic(i === steps.length - 1 ? 'win' : 'tap');
+      i += 1;
+      if (i < steps.length) {
+        setTimeout(stepFn, 580);
+      } else {
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          resolve();
+        }, 420);
+      }
+    };
+    stepFn();
+  });
+}
+
+function animateNextRoundBar(durationMs) {
+  const bar = $('nextRoundBar');
+  if (!bar) return;
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  void bar.offsetWidth;
+  bar.style.transition = `width ${durationMs}ms linear`;
+  bar.style.width = '0%';
+}
+
+function resetNextRoundBar() {
+  const bar = $('nextRoundBar');
+  if (!bar) return;
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
 }
 
 /* =========================================================================
@@ -442,6 +661,7 @@ function stopVisualTimer() {
 
 function startVisualTimer(durationMs = QUESTION_DURATION_MS, onLocalExpire = null) {
   stopVisualTimer();
+  setStudioMood('tension');
   const startTs = performance.now();
   lastTickSecond = Math.ceil(durationMs / 1000);
 
@@ -462,6 +682,7 @@ function startVisualTimer(durationMs = QUESTION_DURATION_MS, onLocalExpire = nul
 
     if (secCeil <= 3 && remainMs > 0) {
       wrapEl.classList.add('danger');
+      setStudioMood('urgent');
     } else {
       wrapEl.classList.remove('danger');
     }
@@ -478,7 +699,7 @@ function startVisualTimer(durationMs = QUESTION_DURATION_MS, onLocalExpire = nul
   };
 
   update();
-  uiTimerInterval = setInterval(update, 50);
+  uiTimerInterval = setInterval(update, 40);
 }
 
 /* =========================================================================
@@ -498,15 +719,15 @@ const gameState = {
     categories: [...ALL_CATEGORIES]
   },
 
-  // Map of playerId -> { id, name, avatar, score, isHost, lastSeen }
   players: {},
+  roundWrongIds: new Set(), // track who already answered wrong in the active question
 
-  // Current active question round
   currentRound: null,
+  activeClientQId: null,
   myAnsweredRoundId: null,
   myChoiceIndex: null,
 
-  // Solo mode state
+  // Solo state
   soloIndex: 0,
   soloLifelines: { fifty: false, audience: false, friend: false, switchQ: false }
 };
@@ -526,6 +747,14 @@ function topicBase(code) {
 function selectBrokerForCode(code, preferIndex = 0) {
   if (code && code.startsWith('9')) return BROKERS[1];
   return BROKERS[preferIndex] || BROKERS[0];
+}
+
+function renderRoomCodeTiles(code) {
+  $('displayRoomCode').textContent = code;
+  const wrap = $('displayRoomCodeTiles');
+  if (!wrap) return;
+  const digits = String(code).padEnd(5, '-').slice(0, 5).split('');
+  wrap.innerHTML = digits.map((d) => `<span class="code-tile">${escapeHtml(d)}</span>`).join('');
 }
 
 function connectMqttClient(brokerUrl, willTopic, willPayload) {
@@ -574,6 +803,8 @@ function connectMqttClient(brokerUrl, willTopic, willPayload) {
 
 function cleanupRoomSession() {
   stopVisualTimer();
+  resetNextRoundBar();
+  setStudioMood('idle');
   if (gameState.heartbeatTimer) clearInterval(gameState.heartbeatTimer);
   if (gameState.hostRoundTimeout) clearTimeout(gameState.hostRoundTimeout);
   if (gameState.hostNextRoundTimeout) clearTimeout(gameState.hostNextRoundTimeout);
@@ -585,7 +816,6 @@ function cleanupRoomSession() {
     try {
       const base = topicBase(gameState.roomCode);
       if (gameState.isHost) {
-        // Clear retained room state and notify guests
         gameState.mqttClient.publish(`${base}/state`, '', { qos: 1, retain: true });
         gameState.mqttClient.publish(`${base}/evt`, JSON.stringify({ type: 'HOST_CLOSED' }), { qos: 1 });
       } else {
@@ -600,6 +830,8 @@ function cleanupRoomSession() {
     }
   }
   gameState.currentRound = null;
+  gameState.activeClientQId = null;
+  gameState.roundWrongIds.clear();
   gameState.players = {};
 }
 
@@ -608,13 +840,13 @@ function cleanupRoomSession() {
    ========================================================================= */
 async function createMultiplayerRoom() {
   sfx.ensure();
+  haptic('tap');
   getSelectedProfile();
   cleanupRoomSession();
 
   gameState.mode = 'multi';
   gameState.isHost = true;
 
-  // Try primary broker (EMQX -> prefix 1..8), fallback to HiveMQ (prefix 9)
   let client = null;
   let code = '';
   for (let i = 0; i < BROKERS.length; i++) {
@@ -625,12 +857,8 @@ async function createMultiplayerRoom() {
     try {
       setLobbyBadge(true, '🔄 جاري فتح الغرفة...');
       showView('lobby');
-      $('displayRoomCode').textContent = code;
-      client = await connectMqttClient(
-        broker.url,
-        `${topicBase(code)}/evt`,
-        { type: 'HOST_CLOSED' }
-      );
+      renderRoomCodeTiles(code);
+      client = await connectMqttClient(broker.url, `${topicBase(code)}/evt`, { type: 'HOST_CLOSED' });
       break;
     } catch (e) {
       console.warn('Broker fallback:', broker.id, e.message);
@@ -662,18 +890,17 @@ async function createMultiplayerRoom() {
   setLobbyBadge(false, '🟢 الغرفة متصلة وجاهزة لأي شبكة');
   sfx.playIntro();
 
-  // Warm up AI question batch immediately while waiting in lobby!
   aiEngine.clearQueue();
   aiEngine.ensureReady(gameState.settings.categories, 6);
-
   startRoomHeartbeat();
 }
 
 async function joinMultiplayerRoom(rawCode) {
   sfx.ensure();
-  const code = String(rawCode || '').replace(/\s+/g, '').trim();
+  haptic('tap');
+  const code = String(rawCode || '').replace(/\D/g, '').trim();
   if (code.length < 4) {
-    showToast('⚠️ يرجى إدخال كود الغرفة الصحيح (5 أرقام)');
+    showToast('⚠️ يرجى إدخال كود الغرفة المكون من 5 أرقام');
     return;
   }
 
@@ -686,17 +913,13 @@ async function joinMultiplayerRoom(rawCode) {
 
   const broker = selectBrokerForCode(code);
   showView('lobby');
-  $('displayRoomCode').textContent = code;
+  renderRoomCodeTiles(code);
   setLobbyBadge(true, '🔄 جاري البحث عن الغرفة...');
   updateLobbyUI();
 
   let client;
   try {
-    client = await connectMqttClient(
-      broker.url,
-      `${topicBase(code)}/cmd`,
-      { type: 'LEAVE', playerId: myProfile.id }
-    );
+    client = await connectMqttClient(broker.url, `${topicBase(code)}/cmd`, { type: 'LEAVE', playerId: myProfile.id });
   } catch {
     showView('home');
     showToast('⚠️ تعذر الاتصال بالشبكة، حاول مرة أخرى');
@@ -723,18 +946,12 @@ async function joinMultiplayerRoom(rawCode) {
 
   const base = topicBase(code);
   client.subscribe([`${base}/state`, `${base}/evt`], { qos: 1 }, () => {
-    // Announce JOIN to Host
     client.publish(`${base}/cmd`, JSON.stringify({
       type: 'JOIN',
-      player: {
-        id: myProfile.id,
-        name: myProfile.name,
-        avatar: myProfile.avatar
-      }
+      player: { id: myProfile.id, name: myProfile.name, avatar: myProfile.avatar }
     }), { qos: 1 });
   });
 
-  // Verify room exists within 4.5s
   setTimeout(() => {
     if (!roomFound && gameState.mode === 'multi' && !gameState.isHost) {
       cleanupRoomSession();
@@ -773,7 +990,6 @@ function startRoomHeartbeat() {
     const base = topicBase(gameState.roomCode);
     if (gameState.isHost) {
       gameState.players[myProfile.id].lastSeen = Date.now();
-      // Prune disconnected guests (>16s silent)
       let changed = false;
       const now = Date.now();
       for (const pid of Object.keys(gameState.players)) {
@@ -845,7 +1061,6 @@ function handleHostIncomingCmd(msg) {
     renderLiveScoreboard();
     showToast(`👋 انضم ${gameState.players[p.id].name} إلى الغرفة!`);
 
-    // If game is already running, send current question snapshot so late joiner can play next/current!
     if (gameState.currentRound && !gameState.currentRound.resolved) {
       const r = gameState.currentRound;
       const remainMs = Math.max(1500, QUESTION_DURATION_MS - (Date.now() - r.startedAt));
@@ -892,7 +1107,6 @@ async function hostStartMatch() {
     gameState.settings.categories = [...ALL_CATEGORIES];
   }
 
-  // Reset all scores for new match
   Object.values(gameState.players).forEach((p) => { p.score = 0; });
   publishHostRoomState('playing');
 
@@ -902,8 +1116,21 @@ async function hostStartMatch() {
     settings: gameState.settings
   });
 
-  await aiEngine.ensureReady(gameState.settings.categories, 3);
+  // Ensure initial questions & let 3-2-1 countdown complete in parallel!
+  await Promise.all([
+    aiEngine.ensureReady(gameState.settings.categories, 3),
+    new Promise((r) => setTimeout(r, 2250))
+  ]);
   hostLaunchQuestion(1);
+}
+
+function hostEndMatchEarly() {
+  if (!gameState.isHost || gameState.mode !== 'multi') return;
+  if (gameState.hostRoundTimeout) clearTimeout(gameState.hostRoundTimeout);
+  if (gameState.hostNextRoundTimeout) clearTimeout(gameState.hostNextRoundTimeout);
+  if (gameState.currentRound) gameState.currentRound.resolved = true;
+  publishHostRoomState('finished');
+  broadcastRoomEvent({ type: 'GAME_OVER', players: gameState.players });
 }
 
 async function hostLaunchQuestion(roundNum) {
@@ -913,10 +1140,7 @@ async function hostLaunchQuestion(roundNum) {
 
   if (roundNum > gameState.settings.totalRounds) {
     publishHostRoomState('finished');
-    broadcastRoomEvent({
-      type: 'GAME_OVER',
-      players: gameState.players
-    });
+    broadcastRoomEvent({ type: 'GAME_OVER', players: gameState.players });
     return;
   }
 
@@ -931,8 +1155,8 @@ async function hostLaunchQuestion(roundNum) {
     source: qObj.source,
     startedAt: Date.now(),
     resolved: false,
-    answeredBy: {},   // playerId -> choiceIdx
-    wrongPlayers: {}  // playerId -> choiceIdx
+    answeredBy: {},
+    wrongPlayers: {}
   };
   gameState.currentRound = activeRound;
 
@@ -949,7 +1173,6 @@ async function hostLaunchQuestion(roundNum) {
     players: gameState.players
   });
 
-  // Authoritative 10s timer (+300ms network transit tolerance for 9.9s clicks)
   gameState.hostRoundTimeout = setTimeout(() => {
     if (!gameState.currentRound || gameState.currentRound.qId !== activeRound.qId || activeRound.resolved) return;
     activeRound.resolved = true;
@@ -958,6 +1181,7 @@ async function hostLaunchQuestion(roundNum) {
       type: 'ROUND_END',
       qId: activeRound.qId,
       reason: 'timeout',
+      nextDelayMs: 2600,
       correctIndex: activeRound.answer,
       wrongPlayers: activeRound.wrongPlayers,
       players: gameState.players
@@ -970,12 +1194,11 @@ function processHostAnswer(playerId, qId, choiceIndex) {
   const r = gameState.currentRound;
   if (!r || r.resolved || r.qId !== qId) return;
   if (!gameState.players[playerId]) return;
-  if (r.answeredBy[playerId] !== undefined) return; // Already answered this question
+  if (r.answeredBy[playerId] !== undefined) return;
 
   r.answeredBy[playerId] = choiceIndex;
 
   if (choiceIndex === r.answer) {
-    // FIRST CORRECT ANSWER WINS +1 POINT IMMEDIATELY!
     r.resolved = true;
     if (gameState.hostRoundTimeout) clearTimeout(gameState.hostRoundTimeout);
 
@@ -987,6 +1210,7 @@ function processHostAnswer(playerId, qId, choiceIndex) {
       type: 'ROUND_END',
       qId: r.qId,
       reason: 'correct',
+      nextDelayMs: 3100,
       winnerId: playerId,
       winnerName: gameState.players[playerId].name,
       winnerAvatar: gameState.players[playerId].avatar,
@@ -998,7 +1222,6 @@ function processHostAnswer(playerId, qId, choiceIndex) {
 
     gameState.hostNextRoundTimeout = setTimeout(() => hostLaunchQuestion(r.roundNum + 1), 3100);
   } else {
-    // WRONG ANSWER: -1 POINT! Other players still get a chance!
     gameState.players[playerId].score -= 1;
     r.wrongPlayers[playerId] = choiceIndex;
     publishHostRoomState('playing');
@@ -1007,7 +1230,6 @@ function processHostAnswer(playerId, qId, choiceIndex) {
     const allWrong = activeIds.every((pid) => r.wrongPlayers[pid] !== undefined);
 
     if (allWrong) {
-      // ALL PLAYERS ANSWERED WRONG -> CHANGE QUESTION IMMEDIATELY!
       r.resolved = true;
       if (gameState.hostRoundTimeout) clearTimeout(gameState.hostRoundTimeout);
 
@@ -1015,6 +1237,7 @@ function processHostAnswer(playerId, qId, choiceIndex) {
         type: 'ROUND_END',
         qId: r.qId,
         reason: 'all_wrong',
+        nextDelayMs: 2300,
         correctIndex: r.answer,
         wrongPlayers: r.wrongPlayers,
         players: gameState.players
@@ -1022,7 +1245,6 @@ function processHostAnswer(playerId, qId, choiceIndex) {
 
       gameState.hostNextRoundTimeout = setTimeout(() => hostLaunchQuestion(r.roundNum + 1), 2300);
     } else {
-      // Announce wrong penalty (-1) without leaking which choice was wrong to remaining players!
       broadcastRoomEvent({
         type: 'PLAYER_WRONG',
         qId: r.qId,
@@ -1045,6 +1267,7 @@ function checkIfAllRemainingWrongAfterLeave() {
       type: 'ROUND_END',
       qId: r.qId,
       reason: 'all_wrong',
+      nextDelayMs: 2300,
       correctIndex: r.answer,
       wrongPlayers: r.wrongPlayers,
       players: gameState.players
@@ -1085,6 +1308,7 @@ function handleRoomEvent(evt) {
   if (evt.type === 'RETURN_LOBBY') {
     if (evt.players) gameState.players = evt.players;
     stopVisualTimer();
+    resetNextRoundBar();
     showView('lobby');
     updateLobbyUI();
     return;
@@ -1094,15 +1318,16 @@ function handleRoomEvent(evt) {
     if (evt.players) gameState.players = evt.players;
     if (evt.settings) gameState.settings = evt.settings;
     prepareGameStageUI('multi');
-    setBanner('✨ جاري توليد أسئلة متجددة بالذكاء الاصطناعي...', '');
-    $('questionText').textContent = 'استعد! الأسئلة قادمة خلال لحظات...';
+    setBanner('✨ جاري تحضير أسئلة متجددة بالذكاء الاصطناعي...', '');
+    $('questionText').textContent = 'استعد! أول إجابة صحيحة تخطف النقطة...';
     resetOptionButtons(true);
-    sfx.playIntro();
+    runCountdownOverlay('تحدي الغرفة يبدأ الآن!');
     return;
   }
 
   if (evt.type === 'QUESTION_START' || (evt.type === 'LATE_SYNC' && evt.targetId === myProfile.id)) {
     if (evt.players) gameState.players = evt.players;
+    $('countdownOverlay').classList.add('hidden');
     prepareGameStageUI('multi');
     renderMultiplayerQuestion(evt, evt.remainMs || evt.durationMs || QUESTION_DURATION_MS);
     return;
@@ -1110,11 +1335,15 @@ function handleRoomEvent(evt) {
 
   if (evt.type === 'PLAYER_WRONG') {
     if (evt.players) gameState.players = evt.players;
+    gameState.roundWrongIds.add(evt.playerId);
     sfx.playWrong();
-    renderLiveScoreboard({ wrongId: evt.playerId });
+    renderLiveScoreboard({ deltaId: evt.playerId, deltaVal: '-1' });
 
     if (evt.playerId === myProfile.id) {
-      // Highlight my wrong choice red & keep locked
+      haptic('wrong');
+      setStudioMood('wrong');
+      triggerStageShake();
+      setTimeout(() => { if (uiTimerInterval) setStudioMood('tension'); }, 650);
       if (gameState.myChoiceIndex !== null) {
         const btn = document.querySelector(`.hex-option[data-idx="${gameState.myChoiceIndex}"]`);
         if (btn) {
@@ -1139,22 +1368,29 @@ function handleRoomEvent(evt) {
   if (evt.type === 'GAME_OVER') {
     if (evt.players) gameState.players = evt.players;
     stopVisualTimer();
+    resetNextRoundBar();
     renderMultiplayerPodium();
   }
 }
 
 function prepareGameStageUI(mode) {
   showView('game');
-  $('soloLifelines').classList.toggle('hidden', mode !== 'solo');
-  $('soloPrizeBadge').classList.toggle('hidden', mode !== 'solo');
-  $('liveScoreboard').classList.toggle('hidden', mode !== 'multi');
-  $('inGameEmojiBar').classList.toggle('hidden', mode !== 'multi');
+  const isSolo = mode === 'solo';
+  $('soloLifelines').classList.toggle('hidden', !isSolo);
+  $('btnToggleLadder').classList.toggle('hidden', !isSolo);
+  $('soloLadderPanel').classList.toggle('hidden', !isSolo);
+  $('gameLayout').classList.toggle('has-ladder', isSolo);
+  $('liveScoreboard').classList.toggle('hidden', isSolo);
+  $('inGameEmojiBar').classList.toggle('hidden', isSolo);
+  $('btnHostFinishNow').classList.toggle('hidden', isSolo || !gameState.isHost);
   $('soloHelperBox').classList.add('hidden');
 }
 
 function renderMultiplayerQuestion(evt, durationMs) {
   gameState.myAnsweredRoundId = null;
   gameState.myChoiceIndex = null;
+  gameState.roundWrongIds.clear();
+  resetNextRoundBar();
 
   const totalLabel = evt.totalRounds >= 500 ? '∞' : evt.totalRounds;
   $('roundProgressBadge').textContent = `السؤال ${evt.roundNum} / ${totalLabel}`;
@@ -1187,33 +1423,51 @@ function revealRoundOutcome(evt) {
     }
   });
 
+  if (evt.wrongPlayers) {
+    Object.keys(evt.wrongPlayers).forEach((pid) => gameState.roundWrongIds.add(pid));
+  }
+
   if (evt.reason === 'correct') {
     sfx.playCorrect();
-    renderLiveScoreboard({ winnerId: evt.winnerId });
+    setStudioMood('win');
     const meWon = evt.winnerId === myProfile.id;
+    if (meWon) {
+      haptic('win');
+      fx.burst(65);
+      recordCorrectStat();
+    } else {
+      fx.burst(30);
+    }
+    renderLiveScoreboard({ winnerId: evt.winnerId, deltaId: evt.winnerId, deltaVal: '+1' });
     setBanner(
       meWon
-        ? `🏆 أحسنت! خطفت النقطة (+1) في ${evt.elapsedSec} ثانية!`
-        : `🏆 ${evt.winnerAvatar} ${evt.winnerName} أجاب أولاً بشكل صحيح وخطف (+1) في ${evt.elapsedSec} ث!`,
+        ? `🏆 بطل الجولة! خطفت النقطة (+1) في ${evt.elapsedSec} ثانية!`
+        : `🏆 ${evt.winnerAvatar} ${evt.winnerName} خطف النقطة (+1) في ${evt.elapsedSec} ثانية!`,
       'banner-win'
     );
   } else if (evt.reason === 'all_wrong') {
     sfx.playTimeout();
+    haptic('wrong');
+    setStudioMood('wrong');
+    triggerStageShake();
     renderLiveScoreboard();
-    setBanner('💥 كل المتسابقين أجابوا خطأ! يتم تغيير السؤال الآن...', 'banner-wrong');
+    setBanner('💥 كل المتسابقين أجابوا خطأ! يتم تغيير السؤال فوراً...', 'banner-wrong');
   } else {
     sfx.playTimeout();
+    setStudioMood('wrong');
     renderLiveScoreboard();
-    setBanner('⏱️ انتهت مهلة الـ 10 ثوانٍ! جاري الانتقال للسؤال التالي...', 'banner-wrong');
+    setBanner('⏱️ انتهت مهلة الـ 10 ثوانٍ! الانتقال للسؤال التالي...', 'banner-wrong');
   }
+
+  animateNextRoundBar(evt.nextDelayMs || 2600);
 }
 
 function submitMultiplayerChoice(choiceIndex) {
   if (!gameState.activeClientQId || gameState.myAnsweredRoundId === gameState.activeClientQId) return;
+  haptic('tap');
   gameState.myAnsweredRoundId = gameState.activeClientQId;
   gameState.myChoiceIndex = choiceIndex;
 
-  // Lock buttons immediately for this player
   document.querySelectorAll('.hex-option').forEach((btn, idx) => {
     btn.disabled = true;
     if (idx === choiceIndex) btn.classList.add('selected-pending');
@@ -1232,10 +1486,27 @@ function submitMultiplayerChoice(choiceIndex) {
 }
 
 /* =========================================================================
-   SOLO MILLIONAIRE MODE (15 Questions + 4 Lifelines + 10s Timer)
+   SOLO MILLIONAIRE MODE (15 Questions + Prize Ladder + 4 Lifelines)
    ========================================================================= */
+function renderSoloLadder() {
+  const list = $('soloLadderList');
+  if (!list) return;
+  list.innerHTML = '';
+  SOLO_PRIZES.forEach((amount, idx) => {
+    const li = document.createElement('li');
+    let cls = 'ladder-step';
+    if (SAFE_INDICES.has(idx)) cls += ' safe';
+    if (idx < gameState.soloIndex) cls += ' passed';
+    if (idx === gameState.soloIndex) cls += ' current';
+    li.className = cls;
+    li.innerHTML = `<span>${idx + 1}</span><span class="ltr-num">${amount} $</span>`;
+    list.appendChild(li);
+  });
+}
+
 async function startSoloMillionaire() {
   sfx.ensure();
+  haptic('tap');
   getSelectedProfile();
   cleanupRoomSession();
 
@@ -1245,23 +1516,30 @@ async function startSoloMillionaire() {
 
   document.querySelectorAll('.lifeline-btn').forEach((b) => b.classList.remove('used'));
   prepareGameStageUI('solo');
+  renderSoloLadder();
   setBanner('✨ جاري تحضير أسئلة رحلة المليون بالذكاء الاصطناعي...', '');
   $('questionText').textContent = 'استعد لرحلة المليون!';
   resetOptionButtons(true);
-  sfx.playIntro();
 
-  await aiEngine.ensureReady(ALL_CATEGORIES, 4);
+  await Promise.all([
+    aiEngine.ensureReady(ALL_CATEGORIES, 4),
+    runCountdownOverlay('رحلة المليون تبدأ الآن!')
+  ]);
   nextSoloQuestion();
 }
 
 async function nextSoloQuestion() {
   if (gameState.mode !== 'solo') return;
   if (gameState.soloIndex >= SOLO_PRIZES.length) {
+    recordSoloBestStat(1000000);
     renderSoloResult(true);
     return;
   }
 
+  resetNextRoundBar();
   $('soloHelperBox').classList.add('hidden');
+  renderSoloLadder();
+
   const qObj = await aiEngine.nextQuestion(ALL_CATEGORIES);
   gameState.currentRound = qObj;
   gameState.myAnsweredRoundId = null;
@@ -1276,15 +1554,19 @@ async function nextSoloQuestion() {
   });
 
   resetOptionButtons(false);
-  setBanner(`💰 سؤال بقيمة ${SOLO_PRIZES[gameState.soloIndex]} — لديك 10 ثوانٍ!`, '');
+  setBanner(`💰 سؤال بقيمة ${SOLO_PRIZES[gameState.soloIndex]} $ — لديك 10 ثوانٍ!`, '');
   sfx.playQuestionReveal();
 
   startVisualTimer(QUESTION_DURATION_MS, () => {
     if (gameState.mode !== 'solo' || gameState.myAnsweredRoundId) return;
     gameState.myAnsweredRoundId = qObj.qId;
     sfx.playTimeout();
+    haptic('wrong');
+    setStudioMood('wrong');
+    triggerStageShake();
     revealSoloButtons(qObj.answer, -1);
-    setBanner('⏱️ انتهى الوقت (10 ثوانٍ)! حظاً أوفر في المرة القادمة', 'banner-wrong');
+    setBanner('⏱️ انتهى الوقت (10 ثوانٍ)! حظاً أوفر في الرحلة القادمة', 'banner-wrong');
+    animateNextRoundBar(2400);
     setTimeout(() => renderSoloResult(false), 2400);
   });
 }
@@ -1292,6 +1574,7 @@ async function nextSoloQuestion() {
 function submitSoloChoice(choiceIndex) {
   const qObj = gameState.currentRound;
   if (!qObj || gameState.myAnsweredRoundId) return;
+  haptic('tap');
   gameState.myAnsweredRoundId = qObj.qId;
   stopVisualTimer();
 
@@ -1299,12 +1582,23 @@ function submitSoloChoice(choiceIndex) {
 
   if (choiceIndex === qObj.answer) {
     sfx.playCorrect();
-    setBanner(`✅ إجابة صحيحة! ربحت ${SOLO_PRIZES[gameState.soloIndex]} $`, 'banner-win');
+    haptic('win');
+    setStudioMood('win');
+    recordCorrectStat();
+    recordSoloBestStat(SOLO_PRIZE_VALUES[gameState.soloIndex]);
+    fx.burst(SAFE_INDICES.has(gameState.soloIndex) ? 80 : 35);
+    setBanner(`✅ إجابة صحيحة! وصلت إلى ${SOLO_PRIZES[gameState.soloIndex]} $`, 'banner-win');
     gameState.soloIndex += 1;
+    renderSoloLadder();
+    animateNextRoundBar(1900);
     setTimeout(() => nextSoloQuestion(), 1900);
   } else {
     sfx.playWrong();
+    haptic('wrong');
+    setStudioMood('wrong');
+    triggerStageShake();
     setBanner('❌ إجابة خاطئة! انتهت رحلة المليون', 'banner-wrong');
+    animateNextRoundBar(2300);
     setTimeout(() => renderSoloResult(false), 2300);
   }
 }
@@ -1317,10 +1611,11 @@ function revealSoloButtons(correctIdx, chosenIdx) {
   });
 }
 
-/* Lifelines */
+/* Visual Solo Lifelines */
 function useSolo5050() {
   const q = gameState.currentRound;
   if (gameState.mode !== 'solo' || !q || gameState.soloLifelines.fifty || gameState.myAnsweredRoundId) return;
+  haptic('tap');
   gameState.soloLifelines.fifty = true;
   $('ll5050').classList.add('used');
 
@@ -1338,35 +1633,60 @@ function useSolo5050() {
 function useSoloAudience() {
   const q = gameState.currentRound;
   if (gameState.mode !== 'solo' || !q || gameState.soloLifelines.audience || gameState.myAnsweredRoundId) return;
+  haptic('tap');
   gameState.soloLifelines.audience = true;
   $('llAudience').classList.add('used');
 
   const letters = ['أ', 'ب', 'ج', 'د'];
-  const pcts = [8, 10, 12, 70];
+  const high = Math.floor(62 + Math.random() * 16);
+  const rest1 = Math.floor(Math.random() * (100 - high - 10)) + 5;
+  const rest2 = Math.floor(Math.random() * (100 - high - rest1 - 3)) + 2;
+  const rest3 = Math.max(1, 100 - high - rest1 - rest2);
+  const others = [rest1, rest2, rest3];
   const out = [0, 0, 0, 0];
-  out[q.answer] = pcts[3];
-  let rem = [pcts[0], pcts[1], pcts[2]];
-  [0, 1, 2, 3].filter((i) => i !== q.answer).forEach((idx, k) => { out[idx] = rem[k]; });
+  out[q.answer] = high;
+  [0, 1, 2, 3].filter((i) => i !== q.answer).forEach((idx, k) => { out[idx] = others[k]; });
 
   const box = $('soloHelperBox');
-  box.textContent = `📊 تصويت الجمهور: ` + out.map((p, i) => `(${letters[i]}: ${p}%)`).join('  •  ');
+  box.innerHTML = `
+    <div style="font-weight:800;color:#7dd3fc;font-size:0.84rem;">📊 نتائج تصويت الجمهور داخل الاستوديو</div>
+    <div class="audience-chart">
+      ${out.map((p, i) => `
+        <div class="aud-col">
+          <span class="aud-pct">${p}%</span>
+          <div class="aud-bar-wrap"><div class="aud-bar" style="height:${p}%"></div></div>
+          <span class="aud-let">${letters[i]}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
   box.classList.remove('hidden');
 }
 
 function useSoloFriend() {
   const q = gameState.currentRound;
   if (gameState.mode !== 'solo' || !q || gameState.soloLifelines.friend || gameState.myAnsweredRoundId) return;
+  haptic('tap');
   gameState.soloLifelines.friend = true;
   $('llFriend').classList.add('used');
 
   const letters = ['أ', 'ب', 'ج', 'د'];
   const box = $('soloHelperBox');
-  box.textContent = `📞 صديقك الخبير يقول: «أنا شبه متأكد أن الإجابة الصحيحة هي (${letters[q.answer]}) ${q.options[q.answer]}!»`;
+  box.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;text-align:right;">
+      <span style="font-size:1.8rem;">📞</span>
+      <div>
+        <strong style="color:#fff3b0;display:block;font-size:0.86rem;">صديقك الخبير على الخط:</strong>
+        <span style="font-size:0.86rem;color:#e0f2fe;">«بسرعة قبل انتهاء الـ 10 ثوانٍ! أنا متأكد بنسبة كبيرة أن الإجابة هي <strong>(${letters[q.answer]}) ${escapeHtml(q.options[q.answer])}</strong>!»</span>
+      </div>
+    </div>
+  `;
   box.classList.remove('hidden');
 }
 
 async function useSoloSwitch() {
   if (gameState.mode !== 'solo' || gameState.soloLifelines.switchQ || gameState.myAnsweredRoundId) return;
+  haptic('tap');
   gameState.soloLifelines.switchQ = true;
   $('llSwitch').classList.add('used');
   stopVisualTimer();
@@ -1385,13 +1705,35 @@ function setLobbyBadge(connecting, text) {
 function setBanner(text, extraClass) {
   const el = $('stageStatusBanner');
   el.className = 'stage-status-banner' + (extraClass ? ' ' + extraClass : '');
-  el.textContent = text;
+  $('stageBannerText').textContent = text;
 }
 
 function resetOptionButtons(disabled) {
   document.querySelectorAll('.hex-option').forEach((btn) => {
     btn.disabled = disabled;
     btn.classList.remove('selected-pending', 'correct', 'wrong', 'hidden-5050');
+  });
+}
+
+function renderAvatarStrip() {
+  const wrap = $('avatarStrip');
+  const preview = $('selectedAvatarPreview');
+  if (!wrap) return;
+  preview.textContent = myProfile.avatar;
+  wrap.innerHTML = '';
+  AVATARS.forEach((av) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'avatar-opt' + (av === myProfile.avatar ? ' active' : '');
+    btn.textContent = av;
+    btn.setAttribute('aria-label', av);
+    btn.addEventListener('click', () => {
+      haptic('tap');
+      myProfile.avatar = av;
+      localStorage.setItem('mm_pavatar', av);
+      renderAvatarStrip();
+    });
+    wrap.appendChild(btn);
   });
 }
 
@@ -1408,10 +1750,11 @@ function updateLobbyUI() {
     li.className = 'lobby-player-item' + (p.id === myProfile.id ? ' is-me' : '');
     li.innerHTML = `
       <div class="lp-left">
+        <span class="online-dot"></span>
         <span class="lp-avatar">${p.avatar}</span>
         <span>${escapeHtml(p.name)} ${p.id === myProfile.id ? '(أنت)' : ''}</span>
       </div>
-      ${p.isHost ? '<span class="host-crown">👑 مضيف الغرفة</span>' : '<span class="host-crown" style="opacity:0.75">جاهز ⚡</span>'}
+      ${p.isHost ? '<span class="host-crown">👑 مضيف الغرفة</span>' : '<span class="host-crown" style="opacity:0.8">جاهز ⚡</span>'}
     `;
     list.appendChild(li);
   });
@@ -1420,7 +1763,6 @@ function updateLobbyUI() {
   $('hostControlsArea').classList.toggle('hidden', !gameState.isHost);
   $('guestWaitingArea').classList.toggle('hidden', gameState.isHost);
 
-  // Sync round selector & category chips
   document.querySelectorAll('#roundCountSelector .pill-opt').forEach((btn) => {
     btn.classList.toggle('active', Number(btn.dataset.rounds) === gameState.settings.totalRounds);
     btn.disabled = !gameState.isHost;
@@ -1429,9 +1771,10 @@ function updateLobbyUI() {
     btn.classList.toggle('active', gameState.settings.categories.includes(btn.dataset.cat));
     btn.disabled = !gameState.isHost;
   });
+  updateLobbyReadyIndicator();
 }
 
-function renderLiveScoreboard(highlight = {}) {
+function renderLiveScoreboard(opts = {}) {
   const wrap = $('liveScoreboard');
   if (!wrap) return;
   const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
@@ -1439,15 +1782,23 @@ function renderLiveScoreboard(highlight = {}) {
   sorted.forEach((p) => {
     const div = document.createElement('div');
     let cls = 'score-chip';
+    const isWrongNow = gameState.roundWrongIds.has(p.id);
     if (p.id === myProfile.id) cls += ' is-me';
-    if (highlight.wrongId === p.id) cls += ' got-wrong';
-    if (highlight.winnerId === p.id) cls += ' got-winner';
+    if (isWrongNow) cls += ' got-wrong';
+    if (opts.winnerId === p.id) cls += ' got-winner';
     div.className = cls;
 
     const scoreSign = p.score > 0 ? `+${p.score}` : String(p.score);
+    const statusIcon = opts.winnerId === p.id ? '🏆' : (isWrongNow ? '❌' : '');
+    const deltaHtml = (opts.deltaId === p.id && opts.deltaVal)
+      ? `<span class="delta-pop ${opts.deltaVal.startsWith('+') ? 'plus' : 'minus'}">${opts.deltaVal}</span>`
+      : '';
+
     div.innerHTML = `
+      ${deltaHtml}
       <span>${p.avatar}</span>
       <span class="sc-name">${escapeHtml(p.name)}</span>
+      ${statusIcon ? `<span class="sc-status-tag">${statusIcon}</span>` : ''}
       <span class="sc-pts ${p.score < 0 ? 'neg' : ''}">${scoreSign}</span>
     `;
     wrap.appendChild(div);
@@ -1457,17 +1808,49 @@ function renderLiveScoreboard(highlight = {}) {
 function renderMultiplayerPodium() {
   showView('results');
   sfx.playCorrect();
+  fx.burst(95);
+  setStudioMood('win');
+
   const sorted = Object.values(gameState.players).sort((a, b) => b.score - a.score);
   const top = sorted[0];
+  if (top && top.id === myProfile.id && sorted.length > 1) {
+    recordRoomWinStat();
+  }
 
   $('resultsTrophy').textContent = '🏆';
-  $('resultsTitle').textContent = top ? `البطل: ${top.avatar} ${top.name}!` : 'انتهت الجولة!';
-  $('resultsSubtitle').textContent = 'الترتيب النهائي لنقاط الغرفة';
+  $('resultsTitle').textContent = top ? `بطل الغرفة: ${top.avatar} ${top.name}!` : 'انتهت الجولة!';
+  $('resultsSubtitle').textContent = `الترتيب النهائي لـ ${sorted.length} ${sorted.length > 2 ? 'متسابقين' : 'متسابق'}`;
+
+  // Visual 3-Stage Podium when >= 2 players
+  const vp = $('visualPodium');
+  if (sorted.length >= 2) {
+    vp.classList.remove('hidden');
+    const slots = [
+      { rank: 2, p: sorted[1], medal: '🥈', cls: 'pillar-2' },
+      { rank: 1, p: sorted[0], medal: '🥇', cls: 'pillar-1' },
+      { rank: 3, p: sorted[2], medal: '🥉', cls: 'pillar-3' }
+    ].filter((s) => s.p);
+
+    vp.innerHTML = slots.map((s) => {
+      const pts = s.p.score > 0 ? `+${s.p.score}` : String(s.p.score);
+      return `
+        <div class="podium-pillar ${s.cls}">
+          <span class="pillar-avatar">${s.p.avatar}</span>
+          <span class="pillar-name">${escapeHtml(s.p.name)}</span>
+          <div class="pillar-block">
+            <span class="pillar-medal">${s.medal}</span>
+            <span class="pillar-pts">${pts} نقطة</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    vp.classList.add('hidden');
+  }
 
   const container = $('podiumContainer');
   container.innerHTML = '';
   const medals = ['🥇', '🥈', '🥉'];
-
   sorted.forEach((p, idx) => {
     const row = document.createElement('div');
     row.className = 'podium-row' + (idx === 0 ? ' rank-1' : '');
@@ -1488,9 +1871,16 @@ function renderMultiplayerPodium() {
 
 function renderSoloResult(wonMillion) {
   showView('results');
+  $('visualPodium').classList.add('hidden');
+  if (wonMillion) {
+    sfx.playCorrect();
+    fx.burst(120);
+    setStudioMood('win');
+  }
+
   $('resultsTrophy').textContent = wonMillion ? '👑💰' : '🎯';
   $('resultsTitle').textContent = wonMillion
-    ? 'مبروك! لقد ربحت المليون كاملةً 1,000,000 $!'
+    ? 'مبروك! ربحت المليون كاملةً 1,000,000 $!'
     : `انتهت المحاولة عند السؤال ${gameState.soloIndex + 1}`;
 
   const earned = gameState.soloIndex > 0 ? SOLO_PRIZES[gameState.soloIndex - 1] + ' $' : '0 $';
@@ -1516,19 +1906,11 @@ function escapeHtml(s) {
    EVENT LISTENERS & PWA BOOTSTRAP
    ========================================================================= */
 function initApp() {
-  // Restore profile UI
   $('inputPlayerName').value = myProfile.name;
-  $('btnCycleAvatar').textContent = myProfile.avatar;
   $('btnSoundToggle').textContent = sfx.muted ? '🔇' : '🔊';
+  renderAvatarStrip();
+  renderHomeStats();
   updateSeenCountUI();
-
-  // Avatar cycler
-  $('btnCycleAvatar').addEventListener('click', () => {
-    const idx = (AVATARS.indexOf(myProfile.avatar) + 1) % AVATARS.length;
-    myProfile.avatar = AVATARS[idx];
-    $('btnCycleAvatar').textContent = myProfile.avatar;
-    localStorage.setItem('mm_pavatar', myProfile.avatar);
-  });
 
   // Sound toggle
   $('btnSoundToggle').addEventListener('click', () => {
@@ -1538,11 +1920,27 @@ function initApp() {
     if (!sfx.muted) sfx.playIntro();
   });
 
-  // Home & Navigation
+  // Home actions
   $('btnCreateRoom').addEventListener('click', createMultiplayerRoom);
   $('btnJoinRoom').addEventListener('click', () => joinMultiplayerRoom($('inputRoomCode').value));
   $('inputRoomCode').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') joinMultiplayerRoom($('inputRoomCode').value);
+  });
+  $('inputRoomCode').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5);
+  });
+  $('btnPasteCode').addEventListener('click', async () => {
+    try {
+      const txt = (await navigator.clipboard.readText()).replace(/\D/g, '').slice(0, 5);
+      if (txt) {
+        $('inputRoomCode').value = txt;
+        showToast('📋 تم لصق الكود: ' + txt);
+      } else {
+        showToast('الحافظة لا تحتوي على كود رقمي');
+      }
+    } catch {
+      showToast('اضغط مطولاً داخل الخانة للصق الكود');
+    }
   });
   $('btnStartSolo').addEventListener('click', startSoloMillionaire);
 
@@ -1550,26 +1948,36 @@ function initApp() {
     cleanupRoomSession();
     showView('home');
   });
-
   $('btnLeaveLobby').addEventListener('click', () => {
     cleanupRoomSession();
     showView('home');
   });
-
   $('btnQuitMatch').addEventListener('click', () => {
     cleanupRoomSession();
     showView('home');
   });
+  $('btnHostFinishNow').addEventListener('click', hostEndMatchEarly);
 
-  // Copy & Share Room Link
-  $('btnCopyCode').addEventListener('click', async () => {
+  // Solo mobile prize ladder toggle
+  $('btnToggleLadder').addEventListener('click', () => {
+    $('soloLadderPanel').classList.toggle('mobile-open');
+  });
+  $('btnCloseLadder').addEventListener('click', () => {
+    $('soloLadderPanel').classList.remove('mobile-open');
+  });
+
+  // Copy & Share Room Code / Link / WhatsApp
+  const copyCodeHandler = async () => {
+    haptic('tap');
     try {
       await navigator.clipboard.writeText(gameState.roomCode);
       showToast('✅ تم نسخ كود الغرفة: ' + gameState.roomCode);
     } catch {
       showToast('كود الغرفة: ' + gameState.roomCode);
     }
-  });
+  };
+  $('btnCopyCode').addEventListener('click', copyCodeHandler);
+  $('displayRoomCodeTiles').addEventListener('click', copyCodeHandler);
 
   $('btnShareLink').addEventListener('click', async () => {
     const shareUrl = `${location.origin}${location.pathname}?room=${encodeURIComponent(gameState.roomCode)}`;
@@ -1583,16 +1991,37 @@ function initApp() {
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
-      showToast('🔗 تم نسخ الرابط المباشر للغرفة! أرسله لأصدقائك');
+      showToast('🔗 تم نسخ الرابط المباشر للغرفة!');
     } catch {
       showToast(shareUrl);
     }
+  });
+
+  $('btnShareWhatsapp').addEventListener('click', () => {
+    const shareUrl = `${location.origin}${location.pathname}?room=${encodeURIComponent(gameState.roomCode)}`;
+    const msg = `🏆 تعال نلعب «من سيربح المليون» أونلاين!\n🔑 كود الغرفة: *${gameState.roomCode}*\n⏱️ 10 ثوانٍ للسؤال والأسرع يكسب +1!\nاضغط للدخول فوراً:\n${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  });
+
+  // Share final results
+  $('btnShareResult').addEventListener('click', async () => {
+    const title = $('resultsTitle').textContent;
+    const sub = $('resultsSubtitle').textContent;
+    const text = `🏆 ${title}\n${sub}\nجرب تحدي «من سيربح المليون أونلاين»:\n${location.origin}${location.pathname}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'نتيجتي في من سيربح المليون', text }); return; } catch {}
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('📤 تم نسخ النتيجة للمشاركة!');
+    } catch {}
   });
 
   // Host Lobby Settings
   document.querySelectorAll('#roundCountSelector .pill-opt').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
+      haptic('tap');
       gameState.settings.totalRounds = Number(btn.dataset.rounds);
       updateLobbyUI();
       publishHostRoomState('lobby');
@@ -1602,6 +2031,7 @@ function initApp() {
   document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
+      haptic('tap');
       const cat = btn.dataset.cat;
       const list = gameState.settings.categories;
       if (list.includes(cat)) {
@@ -1612,12 +2042,13 @@ function initApp() {
       aiEngine.clearQueue();
       updateLobbyUI();
       publishHostRoomState('lobby');
+      aiEngine.ensureReady(gameState.settings.categories, 5);
     });
   });
 
   $('btnHostStartGame').addEventListener('click', hostStartMatch);
 
-  // Answer Buttons
+  // Answer Buttons + Keyboard 1-4 Shortcuts
   document.querySelectorAll('.hex-option').forEach((btn) => {
     btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.idx);
@@ -1626,15 +2057,31 @@ function initApp() {
     });
   });
 
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      $('settingsModal').classList.add('hidden');
+      $('soloLadderPanel').classList.remove('mobile-open');
+      return;
+    }
+    if (!views.game.classList.contains('active')) return;
+    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+    const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3 };
+    if (keyMap[e.key] !== undefined) {
+      const btn = document.querySelector(`.hex-option[data-idx="${keyMap[e.key]}"]`);
+      if (btn && !btn.disabled) btn.click();
+    }
+  });
+
   // Solo Lifelines
   $('ll5050').addEventListener('click', useSolo5050);
   $('llAudience').addEventListener('click', useSoloAudience);
   $('llFriend').addEventListener('click', useSoloFriend);
   $('llSwitch').addEventListener('click', useSoloSwitch);
 
-  // Live Emoji Reactions
+  // Emoji Reactions
   document.querySelectorAll('.emoji-trigger').forEach((btn) => {
     btn.addEventListener('click', () => {
+      haptic('tap');
       const emoji = btn.dataset.emoji;
       if (gameState.mode === 'multi' && gameState.mqttClient) {
         const base = topicBase(gameState.roomCode);
@@ -1642,9 +2089,7 @@ function initApp() {
           broadcastRoomEvent({ type: 'EMOJI', emoji, senderName: myProfile.name });
         } else {
           gameState.mqttClient.publish(`${base}/cmd`, JSON.stringify({
-            type: 'EMOJI',
-            emoji,
-            senderName: myProfile.name
+            type: 'EMOJI', emoji, senderName: myProfile.name
           }), { qos: 0 });
         }
       } else {
@@ -1653,7 +2098,7 @@ function initApp() {
     });
   });
 
-  // Results buttons
+  // Results Actions
   $('btnPlayAgain').addEventListener('click', () => {
     if (gameState.mode === 'solo') {
       startSoloMillionaire();
@@ -1669,7 +2114,6 @@ function initApp() {
       }
     }
   });
-
   $('btnBackHome').addEventListener('click', () => {
     cleanupRoomSession();
     showView('home');
@@ -1678,18 +2122,26 @@ function initApp() {
   // Settings Modal
   $('btnSettings').addEventListener('click', () => {
     $('inputApiKey').value = getApiKey();
+    $('inputApiKey').type = 'password';
     $('testAiOutput').textContent = '';
     updateSeenCountUI();
     $('settingsModal').classList.remove('hidden');
   });
   $('btnCloseSettings').addEventListener('click', () => $('settingsModal').classList.add('hidden'));
+  $('settingsModal').addEventListener('click', (e) => {
+    if (e.target === $('settingsModal')) $('settingsModal').classList.add('hidden');
+  });
+  $('btnToggleKeyVis').addEventListener('click', () => {
+    const inp = $('inputApiKey');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
   $('btnSaveSettings').addEventListener('click', () => {
     const val = $('inputApiKey').value.trim();
     if (val) localStorage.setItem('mm_gemini_key', val);
     else localStorage.removeItem('mm_gemini_key');
     aiEngine.clearQueue();
     $('settingsModal').classList.add('hidden');
-    showToast('✅ تم حفظ الإعدادات');
+    showToast('✅ تم حفظ الإعدادات بنجاح');
   });
   $('btnClearSeen').addEventListener('click', () => {
     localStorage.removeItem('mm_seen_q_v1');
@@ -1722,12 +2174,13 @@ function initApp() {
     }
     window.history.replaceState({}, document.title, location.pathname + location.search);
   }
+  if (getApiKey()) setAiStatusPill(true, 'Gemini Live');
 
   // Check URL deep link (?room=XXXXX)
   const params = new URLSearchParams(location.search);
   const roomParam = params.get('room');
   if (roomParam) {
-    $('inputRoomCode').value = roomParam.trim();
+    $('inputRoomCode').value = roomParam.replace(/\D/g, '').slice(0, 5);
     showToast(`🔑 تم تعبئة كود الغرفة (${roomParam})! اكتب اسمك واضغط انضمام`, 4200);
     window.history.replaceState({}, document.title, location.pathname);
   }

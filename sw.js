@@ -1,4 +1,4 @@
-const CACHE_NAME = 'millionaire-ar-pwa-v2';
+const CACHE_NAME = 'millionaire-ar-pwa-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -27,7 +27,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  // Never cache live API or MQTT WebSocket / external dynamic traffic
   if (
     event.request.method !== 'GET' ||
     url.hostname.includes('googleapis.com') ||
