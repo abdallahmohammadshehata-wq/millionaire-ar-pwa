@@ -79,10 +79,10 @@
         <img src="./icon.svg" alt="من سيربح المليون" class="hero-logo" />
         <div class="hero-badge-row">
           <span class="live-tag">🔴 مباشر عبر أي شبكة</span>
-          <span class="live-tag gold-tag">✨ 6 مجالات متنوعة</span>
+          <span class="live-tag gold-tag">✨ 8 مجالات • 3 مستويات صعوبة</span>
         </div>
         <h1 class="hero-heading">تحدي المليونير أونلاين</h1>
-        <p class="hero-tagline">منافسة سرعة ومعرفة في التاريخ، الجغرافيا، الإسلاميات، الرياضة، المعلومات العامة وألغاز الذكاء IQ</p>
+        <p class="hero-tagline">تاريخ • جغرافيا • إسلاميات • كرة قدم محلي ودولي • رياضة • معلومات عامة • ذكاء IQ</p>
       </div>
 
       <!-- Personal Stats Ribbon -->
@@ -175,6 +175,14 @@
                 <button type="button" class="mini-pill-opt" data-sec="15">15 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="20">20 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="30">30 ث</button>
+              </div>
+            </div>
+            <div class="solo-time-row">
+              <span class="solo-time-label">🎚️ الصعوبة:</span>
+              <div class="mini-pill-selector" id="soloDifficultySelector">
+                <button type="button" class="mini-pill-opt lvl-easy active" data-level="سهل">🟢 سهل</button>
+                <button type="button" class="mini-pill-opt lvl-med active" data-level="متوسط">🟡 متوسط</button>
+                <button type="button" class="mini-pill-opt lvl-hard active" data-level="صعب">🔴 صعب</button>
               </div>
             </div>
           </div>
@@ -282,12 +290,28 @@
           </div>
 
           <div class="setting-group">
-            <label class="field-label">تصنيفات الأسئلة المتجددة</label>
+            <div class="label-row">
+              <label class="field-label">🎚️ مستوى الصعوبة (يمكنك اختيار أكثر من مستوى)</label>
+            </div>
+            <div class="level-chips" id="difficultySelector">
+              <button type="button" class="lvl-chip lvl-easy active" data-level="سهل">🟢 سهل</button>
+              <button type="button" class="lvl-chip lvl-med active" data-level="متوسط">🟡 متوسط</button>
+              <button type="button" class="lvl-chip lvl-hard active" data-level="صعب">🔴 صعب</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="label-row">
+              <label class="field-label">تصنيفات الأسئلة المتجددة</label>
+              <button type="button" id="btnToggleAllCats" class="tiny-link-btn">تحديد الكل</button>
+            </div>
             <div class="category-chips" id="categorySelector">
               <button type="button" class="cat-chip active" data-cat="تاريخ">🏛️ تاريخ</button>
               <button type="button" class="cat-chip active" data-cat="جغرافيا">🌍 جغرافيا</button>
               <button type="button" class="cat-chip active" data-cat="إسلامي">🕌 إسلامي</button>
-              <button type="button" class="cat-chip active" data-cat="رياضة">⚽ رياضة</button>
+              <button type="button" class="cat-chip active" data-cat="كرة قدم محلي">🏟️ كرة قدم محلي</button>
+              <button type="button" class="cat-chip active" data-cat="كرة قدم دولي">🌍 كرة قدم دولي</button>
+              <button type="button" class="cat-chip active" data-cat="رياضة">🏅 رياضة</button>
               <button type="button" class="cat-chip active" data-cat="معلومات عامة">💡 عامة وعلوم</button>
               <button type="button" class="cat-chip active" data-cat="ذكاء IQ">🧠 ذكاء IQ</button>
             </div>
@@ -335,6 +359,7 @@
 
             <div class="hud-left">
               <span id="categoryBadge" class="hud-pill gold-pill">✨ متنوع</span>
+              <span id="levelBadge" class="hud-pill level-pill">🟡 متوسط</span>
               <button type="button" id="btnToggleLadder" class="hud-pill prize-pill hidden" title="عرض شجرة الجوائز">🏆 <span id="soloPrizeBadge">100 $</span></button>
             </div>
           </div>

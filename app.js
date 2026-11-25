@@ -25,7 +25,26 @@ const SOLO_PRIZES = [
 const SOLO_PRIZE_VALUES = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
 const SAFE_INDICES = new Set([4, 9, 14]);
 
-const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
+const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'كرة قدم محلي', 'كرة قدم دولي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
+const ALL_LEVELS = ['سهل', 'متوسط', 'صعب'];
+const LEVEL_META = {
+  'سهل': { emoji: '🟢', cls: 'lvl-easy', label: 'سهل' },
+  'متوسط': { emoji: '🟡', cls: 'lvl-med', label: 'متوسط' },
+  'صعب': { emoji: '🔴', cls: 'lvl-hard', label: 'صعب' }
+};
+
+function loadSavedLevels() {
+  try {
+    const arr = JSON.parse(localStorage.getItem('mm_levels_v1') || 'null');
+    if (Array.isArray(arr)) {
+      const clean = arr.filter((l) => ALL_LEVELS.includes(l));
+      if (clean.length) return clean;
+    }
+  } catch {}
+  return [...ALL_LEVELS];
+}
+
+const DEFAULT_LEVELS = loadSavedLevels();
 
 const SUBTOPIC_SEEDS = [
   'حضارات قديمة وعواصم منسية وألغاز رقمية ذكية',
@@ -303,9 +322,12 @@ function normalizeAndShuffleQuestion(raw, source = 'ai') {
     [tagged[i], tagged[j]] = [tagged[j], tagged[i]];
   }
   const newAnswer = tagged.findIndex((t) => t.isCorrect);
+  const rawLevel = String(raw.level || '').trim();
+  const level = ALL_LEVELS.includes(rawLevel) ? rawLevel : 'متوسط';
   return {
     qId: 'q_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
     category: (raw.category || 'معلومات عامة').trim(),
+    level,
     q: raw.q.trim(),
     options: tagged.map((t) => t.text),
     answer: newAnswer,
@@ -313,30 +335,40 @@ function normalizeAndShuffleQuestion(raw, source = 'ai') {
   };
 }
 
-function generateDynamicIQQuestion() {
-  const type = Math.floor(Math.random() * 3);
-  if (type === 0) {
+function generateDynamicIQQuestion(levels = ALL_LEVELS) {
+  const chosenLevels = levels.length ? levels : ALL_LEVELS;
+  const pickLevel = chosenLevels[Math.floor(Math.random() * chosenLevels.length)];
+  if (pickLevel === 'سهل') {
+    const start = Math.floor(3 + Math.random() * 10);
+    const step = Math.floor(3 + Math.random() * 6);
+    const seq = [start, start + step, start + step * 2, start + step * 3];
+    const ans = start + step * 4;
+    const opts = [String(ans), String(ans + step), String(ans - step), String(ans + 2)];
+    return { category: 'ذكاء IQ', level: 'سهل', q: `أكمل المتتالية: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
+  }
+  if (pickLevel === 'متوسط') {
+    const x = Math.floor(4 + Math.random() * 9);
+    const a = Math.floor(3 + Math.random() * 5);
+    const b = Math.floor(4 + Math.random() * 12);
+    const target = x * a + b;
+    const opts = [String(x), String(x + 1), String(x - 1), String(x + 2)];
+    return { category: 'ذكاء IQ', level: 'متوسط', q: `ما العدد الذي إذا ضربته في ${a} ثم أضفتَ إليه ${b} كان الناتج ${target}؟`, options: opts, answer: 0 };
+  }
+  // صعب: increasing step or 2n+1 geometric progression
+  if (Math.random() < 0.5) {
     const start = Math.floor(2 + Math.random() * 9);
     const step = Math.floor(2 + Math.random() * 4);
     const seq = [start];
     for (let i = 1; i <= 5; i++) seq.push(seq[i - 1] + i * step);
     const ans = seq.pop();
     const opts = [String(ans), String(ans + step), String(ans - step), String(ans + step * 2)];
-    return { category: 'ذكاء IQ', q: `أكمل المتتالية الذهنية: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
-  }
-  if (type === 1) {
-    const x = Math.floor(4 + Math.random() * 9);
-    const a = Math.floor(3 + Math.random() * 5);
-    const b = Math.floor(4 + Math.random() * 12);
-    const target = x * a + b;
-    const opts = [String(x), String(x + 1), String(x - 1), String(x + 2)];
-    return { category: 'ذكاء IQ', q: `ما العدد الذي إذا ضربته في ${a} ثم أضفتَ إليه ${b} كان الناتج ${target}؟`, options: opts, answer: 0 };
+    return { category: 'ذكاء IQ', level: 'صعب', q: `أكمل المتتالية الذهنية: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
   }
   const s = Math.floor(2 + Math.random() * 5);
   const seq = [s, s * 2 + 1, (s * 2 + 1) * 2 + 1, ((s * 2 + 1) * 2 + 1) * 2 + 1];
   const ans = seq[3] * 2 + 1;
   const opts = [String(ans), String(ans - 2), String(ans + 2), String(ans + 4)];
-  return { category: 'ذكاء IQ', q: `ما الرقم التالي في النمط: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
+  return { category: 'ذكاء IQ', level: 'صعب', q: `ما الرقم التالي في النمط: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
 }
 
 /* =========================================================================
@@ -353,24 +385,36 @@ class AIQuestionGenerator {
     updateLobbyReadyIndicator();
   }
 
-  async fetchBatchFromGemini(categories = ALL_CATEGORIES, count = 8) {
+  async fetchBatchFromGemini(categories = ALL_CATEGORIES, count = 8, levels = ALL_LEVELS) {
     const key = getApiKey();
     if (!key) throw new Error('Missing API key');
 
     const cats = categories.length ? categories : ALL_CATEGORIES;
+    const lvls = levels.length ? levels : ALL_LEVELS;
     const recentSeen = getSeenQuestions().slice(-30);
     const seedTheme = SUBTOPIC_SEEDS[Math.floor(Math.random() * SUBTOPIC_SEEDS.length)];
     const randomSalt = Math.floor(100000 + Math.random() * 900000);
 
+    const footballHint = [];
+    if (cats.includes('كرة قدم محلي')) {
+      footballHint.push('بالنسبة لتصنيف «كرة قدم محلي»: ركّز على الدوري المصري الممتاز (الأهلي، الزمالك، الإسماعيلي، بيراميدز، كأس مصر، هدافو الدوري) والدوريات العربية (الدوري السعودي للمحترفين الهلال والنصر والاتحاد، المغربي، التونسي) وبطولات الأندية الأفريقية والآسيوية.');
+    }
+    if (cats.includes('كرة قدم دولي')) {
+      footballHint.push('بالنسبة لتصنيف «كرة قدم دولي»: ركّز على كأس العالم، دوري أبطال أوروبا، الدوريات الأوروبية الخمس الكبرى، اليورو، كوبا أمريكا، الكرة الذهبية، وأساطير الكرة العالمية.');
+    }
+
     const prompt = [
       `أنت معدّ أسئلة محترف لبرنامج المسابقات الشهير «من سيربح المليون».`,
       `أنشئ ${count} أسئلة ثقافية جديدة ومبتكرة ومتنوعة باللغة العربية الفصحى السليمة والواضحة.`,
-      `وزّع الأسئلة بالتساوي قدر الإمكان على التصنيفات التالية: (${cats.join('، ')}).`,
+      `وزّع الأسئلة بالتساوي قدر الإمكان على التصنيفات التالية فقط: (${cats.join('، ')}).`,
+      `مستويات الصعوبة المطلوبة فقط: (${lvls.join('، ')}).`,
+      `- سهل: معلومات مشهورة ومباشرة. | متوسط: تفاصيل وأرقام تحتاج ثقافة جيدة. | صعب: معلومات دقيقة وتحديات للخبراء.`,
+      ...footballHint,
       `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
       `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً (أقل من 18 كلمة)، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة تُحل ذهنياً بسرعة.`,
       `2. كل سؤال له 4 خيارات مختلفة تماماً (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
-      `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3).`,
+      `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3)، والحقل level يجب أن يكون أحد القيم المطلوبة بالضبط (${lvls.join(' / ')}).`,
       recentSeen.length ? `4. لا تكرر نهائياً أياً من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
     ].filter(Boolean).join('\n');
 
@@ -383,11 +427,12 @@ class AIQuestionGenerator {
             type: 'object',
             properties: {
               category: { type: 'string' },
+              level: { type: 'string' },
               q: { type: 'string' },
               options: { type: 'array', items: { type: 'string' } },
               answer: { type: 'integer' }
             },
-            required: ['category', 'q', 'options', 'answer']
+            required: ['category', 'level', 'q', 'options', 'answer']
           }
         }
       },
@@ -404,7 +449,7 @@ class AIQuestionGenerator {
         if (!model.startsWith('gemma-')) {
           bodyObj.response_format = { type: 'text', mime_type: 'application/json', schema };
         } else {
-          bodyObj.input += '\nأجب بصيغة JSON فقط بهذا الشكل: {"questions":[{"category":"...","q":"...","options":["1","2","3","4"],"answer":0}]}';
+          bodyObj.input += `\nأجب بصيغة JSON فقط بهذا الشكل: {"questions":[{"category":"...","level":"${lvls[0]}","q":"...","options":["1","2","3","4"],"answer":0}]}`;
         }
 
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1/interactions?key=${encodeURIComponent(key)}`, {
@@ -441,6 +486,7 @@ class AIQuestionGenerator {
         const seenSet = new Set(getSeenQuestions());
         const valid = [];
         for (const item of list) {
+          if (!lvls.includes(item.level)) item.level = lvls[Math.floor(Math.random() * lvls.length)];
           const normQ = normalizeAndShuffleQuestion(item, 'ai');
           if (normQ && !seenSet.has(normQ.q.slice(0, 90))) {
             valid.push(normQ);
@@ -458,21 +504,26 @@ class AIQuestionGenerator {
     throw lastErr || new Error('All AI models busy');
   }
 
-  pullFallbackQuestion(categories = ALL_CATEGORIES) {
+  pullFallbackQuestion(categories = ALL_CATEGORIES, levels = ALL_LEVELS) {
     const cats = new Set(categories.length ? categories : ALL_CATEGORIES);
+    const lvls = new Set(levels.length ? levels : ALL_LEVELS);
     if (cats.has('ذكاء IQ') && Math.random() < 0.25) {
-      const iqDynamic = generateDynamicIQQuestion();
+      const iqDynamic = generateDynamicIQQuestion([...lvls]);
       if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai');
     }
     const seen = new Set(getSeenQuestions());
-    let pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && !seen.has(q.q.slice(0, 90)));
+    // 1. Strict: matching category + matching level + unseen
+    let pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && lvls.has(q.level || 'متوسط') && !seen.has(q.q.slice(0, 90)));
+    // 2. Matching category + matching level (allow repeat if exhausted)
+    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && lvls.has(q.level || 'متوسط'));
+    // 3. Matching category any level
     if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category));
     if (!pool.length) pool = FALLBACK_QUESTIONS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     return normalizeAndShuffleQuestion(pick, 'bank');
   }
 
-  async ensureReady(categories = ALL_CATEGORIES, minInitial = 5) {
+  async ensureReady(categories = ALL_CATEGORIES, minInitial = 5, levels = ALL_LEVELS) {
     if (!getApiKey()) {
       updateLobbyReadyIndicator();
       return;
@@ -485,7 +536,7 @@ class AIQuestionGenerator {
     this.isFetching = true;
     updateLobbyReadyIndicator();
     try {
-      const fresh = await this.fetchBatchFromGemini(categories, 8);
+      const fresh = await this.fetchBatchFromGemini(categories, 8, levels);
       this.queue.push(...fresh);
     } catch (e) {
       console.warn('AI batch fallback triggered:', e.message);
@@ -495,13 +546,13 @@ class AIQuestionGenerator {
     }
   }
 
-  async nextQuestion(categories = ALL_CATEGORIES) {
+  async nextQuestion(categories = ALL_CATEGORIES, levels = ALL_LEVELS) {
     if (this.queue.length === 0 && getApiKey()) {
-      await this.ensureReady(categories, 1);
+      await this.ensureReady(categories, 1, levels);
     }
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
       this.isFetching = true;
-      this.fetchBatchFromGemini(categories, 8)
+      this.fetchBatchFromGemini(categories, 8, levels)
         .then((fresh) => {
           this.queue.push(...fresh);
           updateLobbyReadyIndicator();
@@ -510,7 +561,7 @@ class AIQuestionGenerator {
         .finally(() => { this.isFetching = false; });
     }
 
-    const q = this.queue.shift() || this.pullFallbackQuestion(categories);
+    const q = this.queue.shift() || this.pullFallbackQuestion(categories, levels);
     markQuestionSeen(q.q);
     updateSeenCountUI();
     return q;
@@ -724,10 +775,12 @@ const gameState = {
   settings: {
     totalRounds: 15,
     questionSeconds: DEFAULT_QUESTION_SECONDS,
-    categories: [...ALL_CATEGORIES]
+    categories: [...ALL_CATEGORIES],
+    levels: [...DEFAULT_LEVELS]
   },
 
   soloSeconds: DEFAULT_QUESTION_SECONDS,
+  soloLevels: [...DEFAULT_LEVELS],
 
   players: {},
   roundWrongIds: new Set(),
@@ -909,7 +962,7 @@ async function createMultiplayerRoom() {
   sfx.playIntro();
 
   aiEngine.clearQueue();
-  aiEngine.ensureReady(gameState.settings.categories, 6);
+  aiEngine.ensureReady(gameState.settings.categories, 6, gameState.settings.levels);
   startRoomHeartbeat();
 }
 
@@ -1090,6 +1143,7 @@ function handleHostIncomingCmd(msg) {
         totalRounds: gameState.settings.totalRounds,
         qId: r.qId,
         category: r.category,
+        level: r.level,
         q: r.q,
         options: r.options,
         source: r.source,
@@ -1126,6 +1180,9 @@ async function hostStartMatch() {
   if (gameState.settings.categories.length === 0) {
     gameState.settings.categories = [...ALL_CATEGORIES];
   }
+  if (!gameState.settings.levels || gameState.settings.levels.length === 0) {
+    gameState.settings.levels = [...ALL_LEVELS];
+  }
 
   Object.values(gameState.players).forEach((p) => { p.score = 0; });
   publishHostRoomState('playing');
@@ -1137,7 +1194,7 @@ async function hostStartMatch() {
   });
 
   await Promise.all([
-    aiEngine.ensureReady(gameState.settings.categories, 3),
+    aiEngine.ensureReady(gameState.settings.categories, 3, gameState.settings.levels),
     new Promise((r) => setTimeout(r, 2250))
   ]);
   hostLaunchQuestion(1);
@@ -1166,11 +1223,12 @@ async function hostLaunchQuestion(roundNum) {
   const durSec = getRoomDurationSec();
   const durMs = durSec * 1000;
 
-  const qObj = await aiEngine.nextQuestion(gameState.settings.categories);
+  const qObj = await aiEngine.nextQuestion(gameState.settings.categories, gameState.settings.levels);
   const activeRound = {
     roundNum,
     qId: qObj.qId,
     category: qObj.category,
+    level: qObj.level,
     q: qObj.q,
     options: qObj.options,
     answer: qObj.answer,
@@ -1190,6 +1248,7 @@ async function hostLaunchQuestion(roundNum) {
     totalRounds: gameState.settings.totalRounds,
     qId: activeRound.qId,
     category: activeRound.category,
+    level: activeRound.level,
     q: activeRound.q,
     options: activeRound.options,
     source: activeRound.source,
@@ -1418,6 +1477,14 @@ function prepareGameStageUI(mode) {
   $('soloHelperBox').classList.add('hidden');
 }
 
+function renderLevelBadge(level) {
+  const el = $('levelBadge');
+  if (!el) return;
+  const meta = LEVEL_META[level] || LEVEL_META['متوسط'];
+  el.className = `hud-pill level-pill ${meta.cls}`;
+  el.textContent = `${meta.emoji} ${meta.label}`;
+}
+
 function renderMultiplayerQuestion(evt, durationMs) {
   gameState.myAnsweredRoundId = null;
   gameState.myChoiceIndex = null;
@@ -1427,6 +1494,7 @@ function renderMultiplayerQuestion(evt, durationMs) {
   const totalLabel = evt.totalRounds >= 500 ? '∞' : evt.totalRounds;
   $('roundProgressBadge').textContent = `السؤال ${evt.roundNum} / ${totalLabel}`;
   $('categoryBadge').textContent = `${evt.source === 'ai' ? '✨' : '📚'} ${evt.category}`;
+  renderLevelBadge(evt.level);
   $('questionText').textContent = evt.q;
 
   evt.options.forEach((opt, i) => {
@@ -1555,7 +1623,7 @@ async function startSoloMillionaire() {
   resetOptionButtons(true);
 
   await Promise.all([
-    aiEngine.ensureReady(ALL_CATEGORIES, 4),
+    aiEngine.ensureReady(ALL_CATEGORIES, 4, gameState.soloLevels),
     runCountdownOverlay('رحلة المليون تبدأ الآن!')
   ]);
   nextSoloQuestion();
@@ -1573,7 +1641,7 @@ async function nextSoloQuestion() {
   $('soloHelperBox').classList.add('hidden');
   renderSoloLadder();
 
-  const qObj = await aiEngine.nextQuestion(ALL_CATEGORIES);
+  const qObj = await aiEngine.nextQuestion(ALL_CATEGORIES, gameState.soloLevels);
   gameState.currentRound = qObj;
   gameState.myAnsweredRoundId = null;
 
@@ -1583,6 +1651,7 @@ async function nextSoloQuestion() {
   $('roundProgressBadge').textContent = `السؤال ${gameState.soloIndex + 1} / 15`;
   $('soloPrizeBadge').textContent = `${SOLO_PRIZES[gameState.soloIndex]} $`;
   $('categoryBadge').textContent = `${qObj.source === 'ai' ? '✨' : '📚'} ${qObj.category}`;
+  renderLevelBadge(qObj.level);
   $('questionText').textContent = qObj.q;
 
   qObj.options.forEach((opt, i) => {
@@ -1779,6 +1848,12 @@ function syncSoloTimeUI() {
   });
 }
 
+function syncSoloDifficultyUI() {
+  document.querySelectorAll('#soloDifficultySelector .mini-pill-opt').forEach((btn) => {
+    btn.classList.toggle('active', gameState.soloLevels.includes(btn.dataset.level));
+  });
+}
+
 function updateLobbyUI() {
   const list = $('lobbyPlayersList');
   const playersArr = Object.values(gameState.players);
@@ -1813,10 +1888,20 @@ function updateLobbyUI() {
     btn.classList.toggle('active', Number(btn.dataset.sec) === getRoomDurationSec());
     btn.disabled = !gameState.isHost;
   });
+  const activeLevels = gameState.settings.levels && gameState.settings.levels.length ? gameState.settings.levels : ALL_LEVELS;
+  document.querySelectorAll('#difficultySelector .lvl-chip').forEach((btn) => {
+    btn.classList.toggle('active', activeLevels.includes(btn.dataset.level));
+    btn.disabled = !gameState.isHost;
+  });
   document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
     btn.classList.toggle('active', gameState.settings.categories.includes(btn.dataset.cat));
     btn.disabled = !gameState.isHost;
   });
+  const allBtn = $('btnToggleAllCats');
+  if (allBtn) {
+    allBtn.classList.toggle('hidden', !gameState.isHost);
+    allBtn.textContent = gameState.settings.categories.length === ALL_CATEGORIES.length ? '⚽ كرة قدم فقط' : 'تحديد الكل';
+  }
   updateLobbyReadyIndicator();
 }
 
@@ -1956,6 +2041,7 @@ function initApp() {
   renderAvatarStrip();
   renderHomeStats();
   syncSoloTimeUI();
+  syncSoloDifficultyUI();
   updateSeenCountUI();
 
   $('btnSoundToggle').addEventListener('click', () => {
@@ -2000,6 +2086,26 @@ function initApp() {
         localStorage.setItem('mm_time_sec', String(sec));
         syncSoloTimeUI();
       }
+    });
+  });
+
+  // Solo multi-select difficulty levels (سهل / متوسط / صعب)
+  document.querySelectorAll('#soloDifficultySelector .mini-pill-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      haptic('tap');
+      const lvl = btn.dataset.level;
+      if (!ALL_LEVELS.includes(lvl)) return;
+      const cur = gameState.soloLevels;
+      if (cur.includes(lvl)) {
+        if (cur.length > 1) gameState.soloLevels = cur.filter((l) => l !== lvl);
+        else { showToast('⚠️ يجب اختيار مستوى صعوبة واحد على الأقل'); return; }
+      } else {
+        gameState.soloLevels = [...cur, lvl];
+      }
+      gameState.settings.levels = [...gameState.soloLevels];
+      localStorage.setItem('mm_levels_v1', JSON.stringify(gameState.soloLevels));
+      aiEngine.clearQueue();
+      syncSoloDifficultyUI();
     });
   });
 
@@ -2101,6 +2207,43 @@ function initApp() {
     });
   });
 
+  document.querySelectorAll('#difficultySelector .lvl-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!gameState.isHost) return;
+      haptic('tap');
+      const lvl = btn.dataset.level;
+      if (!ALL_LEVELS.includes(lvl)) return;
+      const cur = gameState.settings.levels || [...ALL_LEVELS];
+      if (cur.includes(lvl)) {
+        if (cur.length > 1) gameState.settings.levels = cur.filter((l) => l !== lvl);
+        else { showToast('⚠️ يجب الإبقاء على مستوى صعوبة واحد على الأقل'); return; }
+      } else {
+        gameState.settings.levels = [...cur, lvl];
+      }
+      gameState.soloLevels = [...gameState.settings.levels];
+      localStorage.setItem('mm_levels_v1', JSON.stringify(gameState.settings.levels));
+      syncSoloDifficultyUI();
+      aiEngine.clearQueue();
+      updateLobbyUI();
+      publishHostRoomState('lobby');
+      aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
+    });
+  });
+
+  $('btnToggleAllCats').addEventListener('click', () => {
+    if (!gameState.isHost) return;
+    haptic('tap');
+    if (gameState.settings.categories.length === ALL_CATEGORIES.length) {
+      gameState.settings.categories = ['كرة قدم محلي', 'كرة قدم دولي'];
+    } else {
+      gameState.settings.categories = [...ALL_CATEGORIES];
+    }
+    aiEngine.clearQueue();
+    updateLobbyUI();
+    publishHostRoomState('lobby');
+    aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
+  });
+
   document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
@@ -2115,7 +2258,7 @@ function initApp() {
       aiEngine.clearQueue();
       updateLobbyUI();
       publishHostRoomState('lobby');
-      aiEngine.ensureReady(gameState.settings.categories, 5);
+      aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
     });
   });
 
