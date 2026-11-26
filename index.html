@@ -1,13 +1,22 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#060b24" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" id="metaThemeColor" content="#060b24" />
+  <script>
+    (function(){
+      var t = localStorage.getItem('mm_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="من سيربح المليون" />
-  <meta name="description" content="لعبة من سيربح المليون أونلاين بأسئلة متجددة بالذكاء الاصطناعي وغرف مالتي بلاير بالأكواد عبر أي شبكة" />
+  <meta name="description"
+    content="لعبة من سيربح المليون أونلاين بأسئلة متجددة بالذكاء الاصطناعي وغرف مالتي بلاير بالأكواد عبر أي شبكة" />
   <title>من سيربح المليون | تحدي الغرف أونلاين</title>
 
   <link rel="manifest" href="./manifest.json" />
@@ -16,12 +25,16 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&display=swap"
+    rel="stylesheet" />
 
   <link rel="stylesheet" href="./styles.css" />
   <!-- MQTT over WSS for cross-network multiplayer rooms (works across Wi-Fi, 4G, 5G, and NATs) -->
-  <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
+  <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"
+    onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
 </head>
+
 <body data-mood="idle">
   <!-- Studio Spotlights & Mood Atmosphere -->
   <div class="studio-bg" aria-hidden="true">
@@ -65,8 +78,10 @@
       <button id="btnInstallPwa" class="icon-pill hidden" title="تثبيت التطبيق على جهازك">
         <span>📲</span> <span class="hide-xs">تثبيت التطبيق</span>
       </button>
+      <button id="btnThemeToggle" class="icon-btn" title="تبديل الوضع الليلي / النهاري" aria-label="تبديل المظهر">☀️</button>
       <button id="btnSoundToggle" class="icon-btn" title="تشغيل / كتم الصوت" aria-label="الصوت">🔊</button>
-      <button id="btnSettings" class="icon-btn" title="الإعدادات ومفتاح التوليد الذكي" aria-label="الإعدادات">⚙️</button>
+      <button id="btnSettings" class="icon-btn" title="الإعدادات ومفتاح التوليد الذكي"
+        aria-label="الإعدادات">⚙️</button>
     </div>
   </header>
 
@@ -118,7 +133,8 @@
         </div>
         <div class="profile-input-wrap">
           <div class="selected-avatar-badge" id="selectedAvatarPreview">👑</div>
-          <input type="text" id="inputPlayerName" class="text-input" maxlength="18" placeholder="اكتب اسمك هنا (مثلاً: أحمد)..." autocomplete="nickname" />
+          <input type="text" id="inputPlayerName" class="text-input" maxlength="18"
+            placeholder="اكتب اسمك هنا (مثلاً: أحمد)..." autocomplete="nickname" />
         </div>
         <div class="avatar-strip" id="avatarStrip" role="radiogroup" aria-label="اختر الرمز"></div>
       </div>
@@ -134,7 +150,8 @@
               <h2>إنشاء غرفة مالتي بلاير</h2>
             </div>
           </div>
-          <p>افتح غرفة خاصة بكود من 5 أرقام وادعُ أصدقاءك من أي شبكة. أول إجابة صحيحة تخطف <strong>+1</strong> والخطأ يخصم <strong>-1</strong>!</p>
+          <p>افتح غرفة خاصة بكود من 5 أرقام وادعُ أصدقاءك من أي شبكة. أول إجابة صحيحة تخطف <strong>+1</strong> والخطأ
+            يخصم <strong>-1</strong>!</p>
           <button id="btnCreateRoom" class="hex-action-btn gold-btn">
             <span>✨ إنشاء غرفة جديدة</span>
           </button>
@@ -152,7 +169,8 @@
           <p>لديك كود غرفة من صديقك؟ أدخل الأرقام الخمسة وانضم للمسابقة فوراً من موبايلك أو حاسوبك.</p>
           <div class="join-row">
             <div class="code-input-wrap">
-              <input type="text" id="inputRoomCode" class="code-input" maxlength="5" inputmode="numeric" placeholder="• • • • •" aria-label="كود الغرفة" />
+              <input type="text" id="inputRoomCode" class="code-input" maxlength="5" inputmode="numeric"
+                placeholder="• • • • •" aria-label="كود الغرفة" />
               <button type="button" id="btnPasteCode" class="paste-chip" title="لصق الكود من الحافظة">لصق</button>
             </div>
             <button id="btnJoinRoom" class="hex-action-btn blue-btn">انضمام</button>
@@ -179,7 +197,8 @@
             </div>
             <div class="solo-time-row">
               <span class="solo-time-label">🎚️ صعوبة كل تصنيف:</span>
-              <button type="button" id="btnToggleSoloMatrix" class="mini-pill-opt active">⚙️ تخصيص التصنيفات والصعوبة</button>
+              <button type="button" id="btnToggleSoloMatrix" class="mini-pill-opt active">⚙️ تخصيص التصنيفات
+                والصعوبة</button>
             </div>
             <div id="soloMatrixDrawer" class="solo-matrix-drawer hidden">
               <div class="quick-presets-row" id="soloPresetsRow">
@@ -336,7 +355,8 @@
           <div class="game-hud">
             <div class="hud-right">
               <button id="btnQuitMatch" class="mini-btn danger-mini" title="إنهاء / خروج">✖</button>
-              <button id="btnHostFinishNow" class="mini-btn gold-mini hidden" title="إنهاء المسابقة وعرض منصة التتويج">🏁 تتويج</button>
+              <button id="btnHostFinishNow" class="mini-btn gold-mini hidden"
+                title="إنهاء المسابقة وعرض منصة التتويج">🏁 تتويج</button>
               <span id="roundProgressBadge" class="hud-pill">1 / 15</span>
             </div>
 
@@ -356,7 +376,8 @@
             <div class="hud-left">
               <span id="categoryBadge" class="hud-pill gold-pill">✨ متنوع</span>
               <span id="levelBadge" class="hud-pill level-pill">🟡 متوسط</span>
-              <button type="button" id="btnToggleLadder" class="hud-pill prize-pill hidden" title="عرض شجرة الجوائز">🏆 <span id="soloPrizeBadge">100 $</span></button>
+              <button type="button" id="btnToggleLadder" class="hud-pill prize-pill hidden" title="عرض شجرة الجوائز">🏆
+                <span id="soloPrizeBadge">100 $</span></button>
             </div>
           </div>
 
@@ -512,17 +533,20 @@
   </main>
 
   <!-- Settings Modal -->
-  <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+  <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true"
+    aria-labelledby="settingsModalTitle">
     <div class="glass-card modal-card">
       <div class="card-title-row">
         <h3 id="settingsModalTitle">⚙️ إعدادات التوليد الذكي واللعبة</h3>
         <button id="btnCloseSettings" class="icon-btn">✖</button>
       </div>
-      <p class="modal-desc">أدخل مفتاح التوليد الذكي لتجديد الأسئلة مباشرة في كل جولة، ويُحفظ المفتاح محلياً على جهازك فقط. كما تُحفظ الأسئلة السابقة لمنع التكرار.</p>
+      <p class="modal-desc">أدخل مفتاح التوليد الذكي لتجديد الأسئلة مباشرة في كل جولة، ويُحفظ المفتاح محلياً على جهازك
+        فقط. كما تُحفظ الأسئلة السابقة لمنع التكرار.</p>
 
       <label class="field-label" for="inputApiKey">مفتاح تجديد الأسئلة بالذكاء الاصطناعي</label>
       <div class="key-input-row">
-        <input type="password" id="inputApiKey" class="text-input ltr-input" placeholder="أدخل مفتاح Gemini API هنا..." autocomplete="off" />
+        <input type="password" id="inputApiKey" class="text-input ltr-input" placeholder="أدخل مفتاح Gemini API هنا..."
+          autocomplete="off" />
         <button type="button" id="btnToggleKeyVis" class="icon-btn" title="إظهار / إخفاء المفتاح">👁️</button>
       </div>
 
@@ -541,4 +565,5 @@
 
   <script type="module" src="./app.js"></script>
 </body>
+
 </html>

@@ -2213,7 +2213,27 @@ function escapeHtml(s) {
 /* =========================================================================
    EVENT LISTENERS & PWA BOOTSTRAP
    ========================================================================= */
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem('mm_theme', t);
+  const btn = $('btnThemeToggle');
+  if (btn) {
+    btn.textContent = t === 'light' ? '🌙' : '☀️';
+    btn.title = t === 'light' ? 'التبديل إلى الوضع الليلي' : 'التبديل إلى الوضع النهاري';
+  }
+  const meta = $('metaThemeColor');
+  if (meta) meta.setAttribute('content', t === 'light' ? '#f4f2ec' : '#050816');
+}
+
 function initApp() {
+  applyTheme(document.documentElement.dataset.theme || localStorage.getItem('mm_theme') || 'dark');
+  $('btnThemeToggle').addEventListener('click', () => {
+    haptic('tap');
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+  });
+
   $('inputPlayerName').value = myProfile.name;
   $('btnSoundToggle').textContent = sfx.muted ? '🔇' : '🔊';
   renderAvatarStrip();
