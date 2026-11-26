@@ -86,7 +86,7 @@ function loadSavedCategoryConfig() {
   try {
     const parsed = JSON.parse(localStorage.getItem('mm_cat_config_v1') || 'null');
     if (parsed && typeof parsed === 'object') return normalizeCategoryConfig(parsed);
-  } catch {}
+  } catch { }
   return createDefaultCategoryConfig();
 }
 
@@ -128,7 +128,7 @@ function haptic(kind) {
     else if (kind === 'win') navigator.vibrate([25, 35, 55]);
     else if (kind === 'wrong') navigator.vibrate([80, 40, 80]);
     else if (kind === 'tick') navigator.vibrate(10);
-  } catch {}
+  } catch { }
 }
 
 function setStudioMood(mood = 'idle') {
@@ -282,7 +282,7 @@ class StudioAudio {
       if (AC) this.ctx = new AC();
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+      this.ctx.resume().catch(() => { });
     }
     return this.ctx;
   }
@@ -348,6 +348,27 @@ function getApiKey() {
   return (localStorage.getItem('mm_gemini_key') || DEFAULT_GEMINI_KEY).trim();
 }
 
+function normalizeArabicText(s) {
+  return String(s || '')
+    .replace(/[\u064B-\u065F\u0670]/g, '') // diacritics
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function tokenJaccard(a, b) {
+  const sa = new Set(normalizeArabicText(a).split(' ').filter((w) => w.length > 1));
+  const sb = new Set(normalizeArabicText(b).split(' ').filter((w) => w.length > 1));
+  if (!sa.size || !sb.size) return 0;
+  let inter = 0;
+  for (const w of sa) if (sb.has(w)) inter++;
+  return inter / (sa.size + sb.size - inter);
+}
+
 function getSeenQuestions() {
   try {
     return JSON.parse(localStorage.getItem('mm_seen_q_v1') || '[]');
@@ -356,13 +377,31 @@ function getSeenQuestions() {
   }
 }
 
-function markQuestionSeen(qText) {
-  if (!qText) return;
-  const norm = qText.trim().slice(0, 90);
-  const seen = getSeenQuestions().filter((x) => x !== norm);
-  seen.push(norm);
-  while (seen.length > 140) seen.shift();
-  localStorage.setItem('mm_seen_q_v1', JSON.stringify(seen));
+function getSeenAnswers() {
+  try {
+    return JSON.parse(localStorage.getItem('mm_seen_ans_v1') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function markQuestionSeen(qText, answerText = '') {
+  if (qText) {
+    const norm = normalizeArabicText(qText).slice(0, 120);
+    const seen = getSeenQuestions().filter((x) => normalizeArabicText(x).slice(0, 120) !== norm);
+    seen.push(qText.trim().slice(0, 110));
+    while (seen.length > 350) seen.shift();
+    localStorage.setItem('mm_seen_q_v1', JSON.stringify(seen));
+  }
+  if (answerText) {
+    const normAns = normalizeArabicText(answerText);
+    if (normAns.length >= 2) {
+      const seenA = getSeenAnswers().filter((x) => normalizeArabicText(x) !== normAns);
+      seenA.push(String(answerText).trim());
+      while (seenA.length > 120) seenA.shift();
+      localStorage.setItem('mm_seen_ans_v1', JSON.stringify(seenA));
+    }
+  }
 }
 
 function normalizeAndShuffleQuestion(raw, source = 'ai', targetChoiceCount = 4) {
@@ -518,6 +557,13 @@ class AIQuestionGenerator {
     this.queue = [];
     this.isFetching = false;
     this.generationId = 0;
+    this.sessionAsked = new Set();
+    this.sessionAnswers = new Set();
+  }
+
+  resetSession() {
+    this.sessionAsked.clear();
+    this.sessionAnswers.clear();
   }
 
   clearQueue() {
@@ -525,6 +571,31 @@ class AIQuestionGenerator {
     this.queue = [];
     this.isFetching = false;
     updateLobbyReadyIndicator();
+  }
+
+  isDuplicateCandidate(qObj, extraNormSet = null) {
+    if (!qObj || !qObj.q) return true;
+    const normQ = normalizeArabicText(qObj.q);
+    if (this.sessionAsked.has(normQ)) return true;
+    if (extraNormSet && extraNormSet.has(normQ)) return true;
+
+    const ansText = qObj.options && qObj.options[qObj.answer] ? normalizeArabicText(qObj.options[qObj.answer]) : '';
+    const ansKey = ansText ? `${qObj.category}::${ansText}` : '';
+    if (ansKey && this.sessionAnswers.has(ansKey)) return true;
+
+    // Check against already-queued questions (exact, same answer, or fuzzy paraphrase)
+    for (const qq of this.queue) {
+      const qNorm = normalizeArabicText(qq.q);
+      if (qNorm === normQ || tokenJaccard(qObj.q, qq.q) >= 0.65) return true;
+      const qAns = qq.options && qq.options[qq.answer] ? normalizeArabicText(qq.options[qq.answer]) : '';
+      if (ansText && qAns && qq.category === qObj.category && qAns === ansText) return true;
+    }
+
+    // Check fuzzy paraphrase against questions already asked in this match
+    for (const askedNorm of this.sessionAsked) {
+      if (tokenJaccard(normQ, askedNorm) >= 0.65) return true;
+    }
+    return false;
   }
 
   async fetchBatchFromGemini(categoryConfig, count = 8, choiceCount = 4) {
@@ -535,9 +606,13 @@ class AIQuestionGenerator {
     const normCfg = normalizeCategoryConfig(categoryConfig);
     const entries = getEnabledEntries(normCfg);
     const cats = entries.map((e) => e.category);
-    const recentSeen = getSeenQuestions().slice(-30);
+    const queuedTexts = this.queue.map((x) => x.q);
+    const queuedAnswers = this.queue.map((x) => x.options?.[x.answer]).filter(Boolean);
+    const recentSeen = [...getSeenQuestions().slice(-40), ...queuedTexts].slice(-50);
+    const recentAnswers = [...getSeenAnswers().slice(-55), ...queuedAnswers].slice(-65);
     const seedTheme = SUBTOPIC_SEEDS[Math.floor(Math.random() * SUBTOPIC_SEEDS.length)];
     const randomSalt = Math.floor(100000 + Math.random() * 900000);
+    const requestCount = Math.min(12, count + 2);
 
     const perCatLines = entries.map((e) => `- ${e.category}: مستوى الصعوبة المطلوب (${e.levels.join(' أو ')})`).join('\n');
 
@@ -549,25 +624,26 @@ class AIQuestionGenerator {
       footballHint.push('بالنسبة لتصنيف «كرة قدم دولي»: ركّز على كأس العالم، دوري أبطال أوروبا، الدوريات الأوروبية الخمس الكبرى، اليورو، كوبا أمريكا، الكرة الذهبية، وأساطير الكرة العالمية.');
     }
     if (cats.includes('مسيرة لاعب محلي')) {
-      footballHint.push('بالنسبة لتصنيف «مسيرة لاعب محلي»: اكتب تسلسل الأندية التي لعب لها لاعب كرة قدم مصري (في الدوري المصري أو محترف مصري بالخارج) بأسهم مثل: «من هو اللاعب المصري صاحب هذه المسيرة: نادي أ ← نادي ب ← نادي ج؟» واجعل كل الاختيارات أسماء لاعبين مصريين حقيقيين.');
+      footballHint.push('بالنسبة لتصنيف «مسيرة لاعب محلي»: اكتب تسلسل الأندية التي لعب لها لاعب كرة قدم مصري (في الدوري المصري أو محترف مصري بالخارج) بأسهم مثل: «من هو اللاعب المصري صاحب هذه المسيرة: نادي أ ← نادي ب ← نادي ج؟» واجعل كل الاختيارات أسماء لاعبين مصريين حقيقيين، ونوّع في اختيار لاعبين مختلفين تماماً عن الأسئلة السابقة.');
     }
     if (cats.includes('مسيرة لاعب عالمي')) {
-      footballHint.push('بالنسبة لتصنيف «مسيرة لاعب عالمي»: اكتب تسلسل الأندية التي لعب لها نجم كرة قدم عالمي (غير مصري) بأسهم مثل: «من هو اللاعب صاحب هذه المسيرة: نادي أ ← نادي ب ← نادي ج ← نادي د؟» واجعل كل الاختيارات أسماء نجوم كرة قدم عالميين متقاربين في الجيل أو المركز.');
+      footballHint.push('بالنسبة لتصنيف «مسيرة لاعب عالمي»: اكتب تسلسل الأندية التي لعب لها نجم كرة قدم عالمي (غير مصري) بأسهم مثل: «من هو اللاعب صاحب هذه المسيرة: نادي أ ← نادي ب ← نادي ج ← نادي د؟» واجعل كل الاختيارات أسماء نجوم كرة قدم عالميين، ونوّع في اختيار نجوم مختلفين تماماً عن الأسئلة السابقة.');
     }
 
     const prompt = [
       `أنت معدّ أسئلة محترف لبرنامج المسابقات الشهير «من سيربح المليون».`,
-      `أنشئ ${count} أسئلة ثقافية جديدة ومبتكرة ومتنوعة باللغة العربية الفصحى السليمة والواضحة.`,
+      `أنشئ ${requestCount} أسئلة ثقافية جديدة ومبتكرة ومتنوعة باللغة العربية الفصحى السليمة والواضحة بدون أي تكرار للفكرة أو الإجابة.`,
       `التصنيفات المطلوبة ومستوى صعوبة كل تصنيف على حدة (التزم بدقة بصعوبة كل تصنيف!):`,
       perCatLines,
       `معايير الصعوبة: سهل = معلومات مشهورة ومباشرة | متوسط = تفاصيل وأرقام تحتاج ثقافة جيدة | صعب = معلومات دقيقة للخبراء | صعب جداً = معلومات نادرة ومتخصصة للغاية بمشتتات ذكية متقاربة | أسطوري = بمستوى سؤال المليون الأخير (معلومات موسوعية نادرة جداً وتواريخ وأسماء وأرقام فائقة الدقة لا يعرفها إلا القليل النادر مع خيارات متقاربة جداً).`,
       ...footballHint,
-      `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
+      `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا جديدة ومشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
       `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة.`,
       `2. كل سؤال يجب أن يحتوي على ${desiredChoices} خيارات مختلفة تماماً بالضبط (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
       `3. الحقل answer هو رقم الفهرس الصحيح (من 0 إلى ${desiredChoices - 1})، والحقل level يجب أن يطابق مستوى الصعوبة المحدد لذلك التصنيف بالضبط.`,
-      recentSeen.length ? `4. لا تكرر نهائياً أياً من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
+      recentAnswers.length ? `4. ممنوع تماماً تكرار أي سؤال تكون إجابته الصحيحة أحد هذه الإجابات المستخدمة سابقاً: (${recentAnswers.join('، ')}).` : '',
+      recentSeen.length ? `5. لا تكرر ولا تُعِد صياغة أي من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
     ].filter(Boolean).join('\n');
 
     const schema = {
@@ -635,25 +711,33 @@ class AIQuestionGenerator {
         if (!jsonMatch) throw new Error('No JSON object in output');
         const parsed = JSON.parse(jsonMatch[0]);
         const list = Array.isArray(parsed.questions) ? parsed.questions : [];
-        const seenSet = new Set(getSeenQuestions());
+        const seenNormSet = new Set(getSeenQuestions().map((x) => normalizeArabicText(x).slice(0, 120)));
+        const seenAnsNormSet = new Set(getSeenAnswers().slice(-60).map((x) => normalizeArabicText(x)));
+        const batchNormSet = new Set();
+        const batchAnsSet = new Set();
         const valid = [];
         for (const item of list) {
           let catName = String(item.category || '').trim();
-          // If only 1 category was requested, normalize slight AI phrasing of that single category name
           if ((!normCfg[catName] || !normCfg[catName].enabled) && entries.length === 1) {
             catName = entries[0].category;
           }
           const catEntry = normCfg[catName];
-          if (!catEntry || !catEntry.enabled) continue; // Strictly reject disabled categories!
+          if (!catEntry || !catEntry.enabled) continue;
           item.category = catName;
           const allowedForCat = catEntry.levels;
           if (!allowedForCat.includes(item.level)) {
             item.level = allowedForCat[Math.floor(Math.random() * allowedForCat.length)];
           }
           const normQ = normalizeAndShuffleQuestion(item, 'ai', desiredChoices);
-          if (normQ && !seenSet.has(normQ.q.slice(0, 90))) {
-            valid.push(normQ);
-          }
+          if (!normQ) continue;
+          const qKey = normalizeArabicText(normQ.q).slice(0, 120);
+          const aKey = normalizeArabicText(normQ.options[normQ.answer] || '');
+          if (seenNormSet.has(qKey) || batchNormSet.has(qKey)) continue;
+          if (aKey && (seenAnsNormSet.has(aKey) || batchAnsSet.has(`${catName}::${aKey}`))) continue;
+          if (this.isDuplicateCandidate(normQ, batchNormSet)) continue;
+          batchNormSet.add(qKey);
+          if (aKey) batchAnsSet.add(`${catName}::${aKey}`);
+          valid.push(normQ);
         }
         if (valid.length > 0) {
           setAiStatusPill(true, model);
@@ -674,18 +758,52 @@ class AIQuestionGenerator {
 
     if (iqEntry && iqEntry.enabled && Math.random() < (entries.length === 1 ? 0.5 : 0.2)) {
       const iqDynamic = generateDynamicIQQuestion(iqEntry.levels);
-      if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai', choiceCount);
+      if (iqDynamic) {
+        const normIq = normalizeAndShuffleQuestion(iqDynamic, 'ai', choiceCount);
+        if (normIq && !this.isDuplicateCandidate(normIq)) return normIq;
+      }
     }
 
-    const seen = new Set(getSeenQuestions());
-    const matchesPerCategoryLevel = (q) => {
+    const seenList = getSeenQuestions().map((x) => normalizeArabicText(x).slice(0, 120));
+    const seenIndexMap = new Map();
+    seenList.forEach((k, idx) => seenIndexMap.set(k, idx));
+
+    const isUnseen = (q) => !seenIndexMap.has(normalizeArabicText(q.q).slice(0, 120));
+    const notInSession = (q) => !this.sessionAsked.has(normalizeArabicText(q.q));
+    const matchesCat = (q) => Boolean(normCfg[q.category]?.enabled);
+    const matchesCatAndLevel = (q) => {
       const entry = normCfg[q.category];
       return Boolean(entry && entry.enabled && entry.levels.includes(q.level || 'متوسط'));
     };
 
-    let pool = FALLBACK_QUESTIONS.filter((q) => matchesPerCategoryLevel(q) && !seen.has(q.q.slice(0, 90)));
-    if (!pool.length) pool = FALLBACK_QUESTIONS.filter(matchesPerCategoryLevel);
-    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => normCfg[q.category]?.enabled);
+    // Priority 1: Enabled category + selected level + completely unseen + not in current match
+    let pool = FALLBACK_QUESTIONS.filter((q) => matchesCatAndLevel(q) && notInSession(q) && isUnseen(q));
+    // Priority 2: Enabled category + any level + completely unseen + not in current match
+    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => matchesCat(q) && notInSession(q) && isUnseen(q));
+    // Priority 3: Enabled category + selected level + not in current match (LRU - oldest seen first)
+    if (!pool.length) {
+      const candidates = FALLBACK_QUESTIONS.filter((q) => matchesCatAndLevel(q) && notInSession(q));
+      if (candidates.length) {
+        candidates.sort((a, b) => (seenIndexMap.get(normalizeArabicText(a.q).slice(0, 120)) ?? -1) - (seenIndexMap.get(normalizeArabicText(b.q).slice(0, 120)) ?? -1));
+        pool = candidates.slice(0, Math.min(3, candidates.length));
+      }
+    }
+    // Priority 4: Enabled category + any level + not in current match (LRU)
+    if (!pool.length) {
+      const candidates = FALLBACK_QUESTIONS.filter((q) => matchesCat(q) && notInSession(q));
+      if (candidates.length) {
+        candidates.sort((a, b) => (seenIndexMap.get(normalizeArabicText(a.q).slice(0, 120)) ?? -1) - (seenIndexMap.get(normalizeArabicText(b.q).slice(0, 120)) ?? -1));
+        pool = candidates.slice(0, Math.min(3, candidates.length));
+      }
+    }
+    // Priority 5: Entire category exhausted in this match -> pick least recently seen
+    if (!pool.length) {
+      const candidates = FALLBACK_QUESTIONS.filter(matchesCat);
+      if (candidates.length) {
+        candidates.sort((a, b) => (seenIndexMap.get(normalizeArabicText(a.q).slice(0, 120)) ?? -1) - (seenIndexMap.get(normalizeArabicText(b.q).slice(0, 120)) ?? -1));
+        pool = [candidates[0]];
+      }
+    }
     if (!pool.length) pool = FALLBACK_QUESTIONS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     return normalizeAndShuffleQuestion(pick, 'bank', choiceCount);
@@ -706,9 +824,10 @@ class AIQuestionGenerator {
     updateLobbyReadyIndicator();
     try {
       const fresh = await this.fetchBatchFromGemini(categoryConfig, 8, choiceCount);
-      // Discard results if user changed categories/levels/choiceCount while request was in-flight!
       if (reqGen === this.generationId) {
-        this.queue.push(...fresh);
+        for (const item of fresh) {
+          if (!this.isDuplicateCandidate(item)) this.queue.push(item);
+        }
       }
     } catch (e) {
       console.warn('AI batch fallback triggered:', e.message);
@@ -724,9 +843,12 @@ class AIQuestionGenerator {
     const normCfg = normalizeCategoryConfig(categoryConfig);
     const desired = ALLOWED_CHOICE_COUNTS.includes(Number(choiceCount)) ? Number(choiceCount) : 4;
 
-    // Purge any stale queued questions that don't match the current enabled categories or choiceCount
     this.queue = this.queue.filter(
-      (q) => normCfg[q.category]?.enabled && Array.isArray(q.options) && q.options.length === desired
+      (q) =>
+        normCfg[q.category]?.enabled &&
+        Array.isArray(q.options) &&
+        q.options.length === desired &&
+        !this.sessionAsked.has(normalizeArabicText(q.q))
     );
 
     if (this.queue.length === 0 && getApiKey()) {
@@ -738,18 +860,23 @@ class AIQuestionGenerator {
       this.fetchBatchFromGemini(normCfg, 8, desired)
         .then((fresh) => {
           if (reqGen === this.generationId) {
-            this.queue.push(...fresh);
+            for (const item of fresh) {
+              if (!this.isDuplicateCandidate(item)) this.queue.push(item);
+            }
             updateLobbyReadyIndicator();
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           if (reqGen === this.generationId) this.isFetching = false;
         });
     }
 
     const q = this.queue.shift() || this.pullFallbackQuestion(normCfg, desired);
-    markQuestionSeen(q.q);
+    const ansText = q.options && q.options[q.answer] ? q.options[q.answer] : '';
+    this.sessionAsked.add(normalizeArabicText(q.q));
+    if (ansText) this.sessionAnswers.add(`${q.category}::${normalizeArabicText(ansText)}`);
+    markQuestionSeen(q.q, ansText);
     updateSeenCountUI();
     return q;
   }
@@ -1041,7 +1168,7 @@ function connectMqttClient(brokerUrl, willTopic, willPayload) {
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true;
-        try { client.end(true); } catch {}
+        try { client.end(true); } catch { }
         reject(new Error('انتهت مهلة الاتصال بالخادم'));
       }
     }, 8000);
@@ -1058,7 +1185,7 @@ function connectMqttClient(brokerUrl, willTopic, willPayload) {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
-        try { client.end(true); } catch {}
+        try { client.end(true); } catch { }
         reject(err);
       }
     });
@@ -1086,7 +1213,7 @@ function cleanupRoomSession() {
         gameState.mqttClient.publish(`${base}/cmd`, JSON.stringify({ type: 'LEAVE', playerId: myProfile.id }), { qos: 1 });
       }
       setTimeout(() => {
-        try { gameState.mqttClient.end(true); } catch {}
+        try { gameState.mqttClient.end(true); } catch { }
         gameState.mqttClient = null;
       }, 180);
     } catch {
@@ -1370,6 +1497,7 @@ function getActivePlayerIds() {
 
 async function hostStartMatch() {
   if (!gameState.isHost) return;
+  aiEngine.resetSession();
   gameState.settings.categoryConfig = normalizeCategoryConfig(gameState.settings.categoryConfig);
 
   Object.values(gameState.players).forEach((p) => { p.score = 0; });
@@ -1831,6 +1959,7 @@ async function startSoloMillionaire() {
   haptic('tap');
   getSelectedProfile();
   cleanupRoomSession();
+  aiEngine.resetSession();
 
   gameState.mode = 'solo';
   gameState.soloIndex = 0;
@@ -2516,7 +2645,7 @@ function initApp() {
       url: shareUrl
     };
     if (navigator.share) {
-      try { await navigator.share(shareData); return; } catch {}
+      try { await navigator.share(shareData); return; } catch { }
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
@@ -2538,12 +2667,12 @@ function initApp() {
     const sub = $('resultsSubtitle').textContent;
     const text = `🏆 ${title}\n${sub}\nجرب تحدي «من سيربح المليون أونلاين»:\n${location.origin}${location.pathname}`;
     if (navigator.share) {
-      try { await navigator.share({ title: 'نتيجتي في من سيربح المليون', text }); return; } catch {}
+      try { await navigator.share({ title: 'نتيجتي في من سيربح المليون', text }); return; } catch { }
     }
     try {
       await navigator.clipboard.writeText(text);
       showToast('📤 تم نسخ النتيجة للمشاركة!');
-    } catch {}
+    } catch { }
   });
 
   // Host Lobby Settings (Rounds, Time Limit, Categories)
@@ -2706,6 +2835,8 @@ function initApp() {
   });
   $('btnClearSeen').addEventListener('click', () => {
     localStorage.removeItem('mm_seen_q_v1');
+    localStorage.removeItem('mm_seen_ans_v1');
+    aiEngine.resetSession();
     updateSeenCountUI();
     showToast('🗑️ تم مسح سجل الأسئلة السابقة');
   });
@@ -2749,7 +2880,7 @@ function initApp() {
   // Register Service Worker & PWA Install Prompt
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.register('./sw.js').catch(() => { });
     });
   }
 
