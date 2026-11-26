@@ -29,7 +29,7 @@
     href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&display=swap"
     rel="stylesheet" />
 
-  <link rel="stylesheet" href="./styles.css?v=12" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
   <!-- MQTT over WSS for cross-network multiplayer rooms (works across Wi-Fi, 4G, 5G, and NATs) -->
   <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"
     onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
@@ -95,10 +95,10 @@
         <img src="./icon.svg" alt="من سيربح المليون" class="hero-logo" />
         <div class="hero-badge-row">
           <span class="live-tag">🔴 مباشر عبر أي شبكة</span>
-          <span class="live-tag gold-tag">✨ 8 مجالات • 5 مستويات حتى الأسطوري</span>
+          <span class="live-tag gold-tag">✨ 9 مجالات • 5 مستويات حتى الأسطوري</span>
         </div>
         <h1 class="hero-heading">تحدي المليونير أونلاين</h1>
-        <p class="hero-tagline">تاريخ • جغرافيا • إسلاميات • كرة قدم محلي ودولي • رياضة • معلومات عامة • ذكاء IQ</p>
+        <p class="hero-tagline">تاريخ • جغرافيا • إسلاميات • كرة قدم محلي ودولي • مسيرة لاعب • رياضة • معلومات عامة • ذكاء IQ</p>
       </div>
 
       <!-- Personal Stats Ribbon -->
@@ -195,6 +195,16 @@
                 <button type="button" class="mini-pill-opt" data-sec="20">20 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="30">30 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="60">1 د</button>
+              </div>
+            </div>
+            <div class="solo-time-row">
+              <span class="solo-time-label">🔢 عدد الاختيارات:</span>
+              <div class="mini-pill-selector" id="soloChoiceCountSelector">
+                <button type="button" class="mini-pill-opt" data-choices="2">2</button>
+                <button type="button" class="mini-pill-opt active" data-choices="4">4</button>
+                <button type="button" class="mini-pill-opt" data-choices="6">6</button>
+                <button type="button" class="mini-pill-opt" data-choices="8">8</button>
+                <button type="button" class="mini-pill-opt" data-choices="10">10</button>
               </div>
             </div>
             <div class="solo-time-row">
@@ -316,6 +326,17 @@
               <button type="button" class="pill-opt" data-sec="20">20 ثانية</button>
               <button type="button" class="pill-opt" data-sec="30">30 ثانية</button>
               <button type="button" class="pill-opt" data-sec="60">1 دقيقة</button>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="field-label">🔢 عدد الاختيارات لكل سؤال</label>
+            <div class="pill-selector pill-selector-5" id="choiceCountSelector">
+              <button type="button" class="pill-opt" data-choices="2">2 اختيار</button>
+              <button type="button" class="pill-opt active" data-choices="4">4 اختيارات</button>
+              <button type="button" class="pill-opt" data-choices="6">6 اختيارات</button>
+              <button type="button" class="pill-opt" data-choices="8">8 اختيارات</button>
+              <button type="button" class="pill-opt" data-choices="10">10 اختيارات</button>
             </div>
           </div>
 
@@ -566,7 +587,7 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=12"></script>
+  <script type="module" src="./app.js?v=13"></script>
 </body>
 
 </html>

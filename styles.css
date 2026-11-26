@@ -3305,3 +3305,40 @@ body[data-mood="win"] .beam-2 {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Dynamic multi-choice grid density (6 / 8 / 10 options) */
+.answers-grid.many-opts {
+  gap: 8px 10px;
+}
+.answers-grid.many-opts .hex-opt-inner {
+  min-height: 46px;
+  padding: 6px 18px;
+  font-size: clamp(0.84rem, 2vw, 0.96rem);
+}
+.answers-grid.dense-opts .hex-opt-inner {
+  min-height: 42px;
+  padding: 5px 16px;
+  font-size: clamp(0.8rem, 1.9vw, 0.9rem);
+}
+@media (max-width: 620px) {
+  .answers-grid.many-opts {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px 6px;
+  }
+  .answers-grid.many-opts .stage-line-sm { display: none; }
+  .answers-grid.many-opts .hex-opt-inner {
+    padding: 6px 13px;
+    min-height: 44px;
+    font-size: 0.82rem;
+    gap: 5px;
+  }
+}
+.audience-chart.many-bars {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  height: auto;
+}
+.audience-chart.many-bars .aud-col { width: 42px; height: 74px; }
+.audience-chart.many-bars .aud-bar-wrap { width: 22px; }

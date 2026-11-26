@@ -8,6 +8,10 @@ const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemma-4-26b-a4b-it', 'gemini-4-
 const ALLOWED_TIME_OPTIONS = [10, 15, 20, 30, 60];
 const SAVED_TIME_SEC = Number(localStorage.getItem('mm_time_sec'));
 const DEFAULT_QUESTION_SECONDS = ALLOWED_TIME_OPTIONS.includes(SAVED_TIME_SEC) ? SAVED_TIME_SEC : 10;
+const ALLOWED_CHOICE_COUNTS = [2, 4, 6, 8, 10];
+const SAVED_CHOICE_COUNT = Number(localStorage.getItem('mm_choice_count'));
+const DEFAULT_CHOICE_COUNT = ALLOWED_CHOICE_COUNTS.includes(SAVED_CHOICE_COUNT) ? SAVED_CHOICE_COUNT : 4;
+const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
 const CIRCUMFERENCE = 2 * Math.PI * 43; // r=43 -> ~270.17
 
 const BROKERS = [
@@ -25,13 +29,14 @@ const SOLO_PRIZES = [
 const SOLO_PRIZE_VALUES = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 125000, 250000, 500000, 1000000];
 const SAFE_INDICES = new Set([4, 9, 14]);
 
-const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'كرة قدم محلي', 'كرة قدم دولي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
+const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'كرة قدم محلي', 'كرة قدم دولي', 'مسيرة لاعب', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
 const CATEGORY_ICONS = {
   'تاريخ': '🏛️',
   'جغرافيا': '🌍',
   'إسلامي': '🕌',
   'كرة قدم محلي': '🏟️',
   'كرة قدم دولي': '⚽',
+  'مسيرة لاعب': '👟',
   'رياضة': '🏅',
   'معلومات عامة': '💡',
   'ذكاء IQ': '🧠'
@@ -359,16 +364,77 @@ function markQuestionSeen(qText) {
   localStorage.setItem('mm_seen_q_v1', JSON.stringify(seen));
 }
 
-function normalizeAndShuffleQuestion(raw, source = 'ai') {
-  if (!raw || typeof raw.q !== 'string' || !Array.isArray(raw.options) || raw.options.length < 4) {
+function normalizeAndShuffleQuestion(raw, source = 'ai', targetChoiceCount = 4) {
+  if (!raw || typeof raw.q !== 'string' || !Array.isArray(raw.options) || raw.options.length < 2) {
     return null;
   }
-  const cleanOpts = raw.options.slice(0, 4).map((o) => String(o).trim());
-  let ansIdx = Number(raw.answer);
-  if (!Number.isInteger(ansIdx) || ansIdx < 0 || ansIdx > 3) ansIdx = 0;
-  if (cleanOpts.some((o) => !o)) return null;
+  const desired = ALLOWED_CHOICE_COUNTS.includes(Number(targetChoiceCount)) ? Number(targetChoiceCount) : 4;
+  const rawOpts = raw.options.map((o) => String(o).trim()).filter(Boolean);
+  if (rawOpts.length < 2) return null;
 
-  const tagged = cleanOpts.map((text, idx) => ({ text, isCorrect: idx === ansIdx }));
+  let ansIdx = Number(raw.answer);
+  if (!Number.isInteger(ansIdx) || ansIdx < 0 || ansIdx >= rawOpts.length) ansIdx = 0;
+  const correctText = rawOpts[ansIdx];
+
+  // Collect unique distractors from the question first
+  const seen = new Set([correctText]);
+  let distractors = [];
+  for (let i = 0; i < rawOpts.length; i++) {
+    if (i !== ansIdx && !seen.has(rawOpts[i])) {
+      seen.add(rawOpts[i]);
+      distractors.push(rawOpts[i]);
+    }
+  }
+
+  // Shuffle existing distractors
+  for (let i = distractors.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
+  }
+
+  const neededDistractors = desired - 1;
+  if (distractors.length > neededDistractors) {
+    distractors = distractors.slice(0, neededDistractors);
+  } else if (distractors.length < neededDistractors) {
+    // Supplement extra distractors cleanly from same category (or numeric neighbors for IQ)
+    const cat = (raw.category || 'معلومات عامة').trim();
+    const numVal = Number(correctText);
+    if (cat === 'ذكاء IQ' && !Number.isNaN(numVal) && /^-?\d+(\.\d+)?$/.test(correctText)) {
+      let step = Math.max(1, Math.round(Math.abs(numVal) * 0.08));
+      for (let k = 1; distractors.length < neededDistractors && k < 40; k++) {
+        for (const cand of [String(numVal + k * step), String(numVal - k * step)]) {
+          if (distractors.length < neededDistractors && !seen.has(cand)) {
+            seen.add(cand);
+            distractors.push(cand);
+          }
+        }
+      }
+    }
+    if (distractors.length < neededDistractors) {
+      const catPool = [];
+      for (const fq of FALLBACK_QUESTIONS) {
+        if (fq.category === cat && Array.isArray(fq.options)) {
+          for (const opt of fq.options) {
+            const s = String(opt).trim();
+            if (s && !seen.has(s)) catPool.push(s);
+          }
+        }
+      }
+      for (let i = catPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [catPool[i], catPool[j]] = [catPool[j], catPool[i]];
+      }
+      for (const cand of catPool) {
+        if (distractors.length >= neededDistractors) break;
+        if (!seen.has(cand)) {
+          seen.add(cand);
+          distractors.push(cand);
+        }
+      }
+    }
+  }
+
+  const tagged = [{ text: correctText, isCorrect: true }, ...distractors.map((text) => ({ text, isCorrect: false }))];
   for (let i = tagged.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [tagged[i], tagged[j]] = [tagged[j], tagged[i]];
@@ -457,10 +523,11 @@ class AIQuestionGenerator {
     updateLobbyReadyIndicator();
   }
 
-  async fetchBatchFromGemini(categoryConfig, count = 8) {
+  async fetchBatchFromGemini(categoryConfig, count = 8, choiceCount = 4) {
     const key = getApiKey();
     if (!key) throw new Error('Missing API key');
 
+    const desiredChoices = ALLOWED_CHOICE_COUNTS.includes(Number(choiceCount)) ? Number(choiceCount) : 4;
     const normCfg = normalizeCategoryConfig(categoryConfig);
     const entries = getEnabledEntries(normCfg);
     const cats = entries.map((e) => e.category);
@@ -477,6 +544,9 @@ class AIQuestionGenerator {
     if (cats.includes('كرة قدم دولي')) {
       footballHint.push('بالنسبة لتصنيف «كرة قدم دولي»: ركّز على كأس العالم، دوري أبطال أوروبا، الدوريات الأوروبية الخمس الكبرى، اليورو، كوبا أمريكا، الكرة الذهبية، وأساطير الكرة العالمية.');
     }
+    if (cats.includes('مسيرة لاعب')) {
+      footballHint.push('بالنسبة لتصنيف «مسيرة لاعب»: اكتب تسلسل الأندية التي لعب لها لاعب كرة قدم مشهور (عالمي أو عربي/مصري) بأسهم مثل: «من هو اللاعب صاحب هذه المسيرة: نادي أ ← نادي ب ← نادي ج ← نادي د؟» واجعل كل الاختيارات أسماء لاعبي كرة قدم حقيقيين متقاربين في الجيل أو الجنسية.');
+    }
 
     const prompt = [
       `أنت معدّ أسئلة محترف لبرنامج المسابقات الشهير «من سيربح المليون».`,
@@ -487,9 +557,9 @@ class AIQuestionGenerator {
       ...footballHint,
       `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
-      `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً (أقل من 18 كلمة)، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة تُحل ذهنياً بسرعة.`,
-      `2. كل سؤال له 4 خيارات مختلفة تماماً (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
-      `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3)، والحقل level يجب أن يطابق مستوى الصعوبة المحدد لذلك التصنيف بالضبط.`,
+      `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة.`,
+      `2. كل سؤال يجب أن يحتوي على ${desiredChoices} خيارات مختلفة تماماً بالضبط (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
+      `3. الحقل answer هو رقم الفهرس الصحيح (من 0 إلى ${desiredChoices - 1})، والحقل level يجب أن يطابق مستوى الصعوبة المحدد لذلك التصنيف بالضبط.`,
       recentSeen.length ? `4. لا تكرر نهائياً أياً من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
     ].filter(Boolean).join('\n');
 
@@ -566,7 +636,7 @@ class AIQuestionGenerator {
           if (!allowedForCat.includes(item.level)) {
             item.level = allowedForCat[Math.floor(Math.random() * allowedForCat.length)];
           }
-          const normQ = normalizeAndShuffleQuestion(item, 'ai');
+          const normQ = normalizeAndShuffleQuestion(item, 'ai', desiredChoices);
           if (normQ && !seenSet.has(normQ.q.slice(0, 90))) {
             valid.push(normQ);
           }
@@ -583,14 +653,14 @@ class AIQuestionGenerator {
     throw lastErr || new Error('All AI models busy');
   }
 
-  pullFallbackQuestion(categoryConfig) {
+  pullFallbackQuestion(categoryConfig, choiceCount = 4) {
     const normCfg = normalizeCategoryConfig(categoryConfig);
     const entries = getEnabledEntries(normCfg);
     const iqEntry = normCfg['ذكاء IQ'];
 
     if (iqEntry && iqEntry.enabled && Math.random() < (entries.length === 1 ? 0.5 : 0.2)) {
       const iqDynamic = generateDynamicIQQuestion(iqEntry.levels);
-      if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai');
+      if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai', choiceCount);
     }
 
     const seen = new Set(getSeenQuestions());
@@ -599,18 +669,15 @@ class AIQuestionGenerator {
       return Boolean(entry && entry.enabled && entry.levels.includes(q.level || 'متوسط'));
     };
 
-    // 1. Strict: enabled category + that category's exact allowed hardness + unseen
     let pool = FALLBACK_QUESTIONS.filter((q) => matchesPerCategoryLevel(q) && !seen.has(q.q.slice(0, 90)));
-    // 2. Enabled category + that category's exact allowed hardness (allow repeat if exhausted)
     if (!pool.length) pool = FALLBACK_QUESTIONS.filter(matchesPerCategoryLevel);
-    // 3. Enabled category any level
     if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => normCfg[q.category]?.enabled);
     if (!pool.length) pool = FALLBACK_QUESTIONS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    return normalizeAndShuffleQuestion(pick, 'bank');
+    return normalizeAndShuffleQuestion(pick, 'bank', choiceCount);
   }
 
-  async ensureReady(categoryConfig, minInitial = 5) {
+  async ensureReady(categoryConfig, minInitial = 5, choiceCount = 4) {
     if (!getApiKey()) {
       updateLobbyReadyIndicator();
       return;
@@ -623,7 +690,7 @@ class AIQuestionGenerator {
     this.isFetching = true;
     updateLobbyReadyIndicator();
     try {
-      const fresh = await this.fetchBatchFromGemini(categoryConfig, 8);
+      const fresh = await this.fetchBatchFromGemini(categoryConfig, 8, choiceCount);
       this.queue.push(...fresh);
     } catch (e) {
       console.warn('AI batch fallback triggered:', e.message);
@@ -633,13 +700,13 @@ class AIQuestionGenerator {
     }
   }
 
-  async nextQuestion(categoryConfig) {
+  async nextQuestion(categoryConfig, choiceCount = 4) {
     if (this.queue.length === 0 && getApiKey()) {
-      await this.ensureReady(categoryConfig, 1);
+      await this.ensureReady(categoryConfig, 1, choiceCount);
     }
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
       this.isFetching = true;
-      this.fetchBatchFromGemini(categoryConfig, 8)
+      this.fetchBatchFromGemini(categoryConfig, 8, choiceCount)
         .then((fresh) => {
           this.queue.push(...fresh);
           updateLobbyReadyIndicator();
@@ -648,7 +715,7 @@ class AIQuestionGenerator {
         .finally(() => { this.isFetching = false; });
     }
 
-    const q = this.queue.shift() || this.pullFallbackQuestion(categoryConfig);
+    const q = this.queue.shift() || this.pullFallbackQuestion(categoryConfig, choiceCount);
     markQuestionSeen(q.q);
     updateSeenCountUI();
     return q;
@@ -862,10 +929,12 @@ const gameState = {
   settings: {
     totalRounds: 15,
     questionSeconds: DEFAULT_QUESTION_SECONDS,
+    choiceCount: DEFAULT_CHOICE_COUNT,
     categoryConfig: normalizeCategoryConfig(DEFAULT_CATEGORY_CONFIG)
   },
 
   soloSeconds: DEFAULT_QUESTION_SECONDS,
+  soloChoiceCount: DEFAULT_CHOICE_COUNT,
   soloCategoryConfig: normalizeCategoryConfig(DEFAULT_CATEGORY_CONFIG),
 
   players: {},
@@ -887,6 +956,11 @@ function getRoomDurationSec() {
 
 function getRoomDurationMs() {
   return getRoomDurationSec() * 1000;
+}
+
+function getRoomChoiceCount() {
+  const n = Number(gameState.settings.choiceCount);
+  return ALLOWED_CHOICE_COUNTS.includes(n) ? n : 4;
 }
 
 function getSelectedProfile() {
@@ -1048,7 +1122,7 @@ async function createMultiplayerRoom() {
   sfx.playIntro();
 
   aiEngine.clearQueue();
-  aiEngine.ensureReady(gameState.settings.categoryConfig, 6);
+  aiEngine.ensureReady(gameState.settings.categoryConfig, 6, getRoomChoiceCount());
   startRoomHeartbeat();
 }
 
@@ -1275,7 +1349,7 @@ async function hostStartMatch() {
   });
 
   await Promise.all([
-    aiEngine.ensureReady(gameState.settings.categoryConfig, 3),
+    aiEngine.ensureReady(gameState.settings.categoryConfig, 3, getRoomChoiceCount()),
     new Promise((r) => setTimeout(r, 2250))
   ]);
   hostLaunchQuestion(1);
@@ -1304,7 +1378,7 @@ async function hostLaunchQuestion(roundNum) {
   const durSec = getRoomDurationSec();
   const durMs = durSec * 1000;
 
-  const qObj = await aiEngine.nextQuestion(gameState.settings.categoryConfig);
+  const qObj = await aiEngine.nextQuestion(gameState.settings.categoryConfig, getRoomChoiceCount());
   const activeRound = {
     roundNum,
     qId: qObj.qId,
@@ -1569,6 +1643,40 @@ function renderLevelBadge(level) {
   if (qBox) qBox.dataset.level = meta.cls;
 }
 
+function renderAnswerButtons(options) {
+  const grid = $('answersGrid');
+  if (!grid) return;
+  const list = Array.isArray(options) ? options : [];
+  grid.classList.toggle('many-opts', list.length >= 6);
+  grid.classList.toggle('dense-opts', list.length >= 8);
+  grid.innerHTML = '';
+
+  list.forEach((optText, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'hex-option-wrap';
+    const keyHint = i === 9 ? '0' : String(i + 1);
+    const letter = OPTION_LETTERS[i] || String(i + 1);
+    wrap.innerHTML = `
+      <span class="stage-line-sm"></span>
+      <button type="button" class="hex-option" data-idx="${i}">
+        <span class="hex-opt-inner">
+          <span class="opt-key-hint">${keyHint}</span>
+          <span class="opt-diamond">◆</span>
+          <span class="opt-letter">${letter}</span>
+          <span class="opt-text">${escapeHtml(optText)}</span>
+        </span>
+      </button>
+      <span class="stage-line-sm"></span>
+    `;
+    const btn = wrap.querySelector('.hex-option');
+    btn.addEventListener('click', () => {
+      if (gameState.mode === 'multi') submitMultiplayerChoice(i);
+      else if (gameState.mode === 'solo') submitSoloChoice(i);
+    });
+    grid.appendChild(wrap);
+  });
+}
+
 function renderMultiplayerQuestion(evt, durationMs) {
   gameState.myAnsweredRoundId = null;
   gameState.myChoiceIndex = null;
@@ -1581,11 +1689,7 @@ function renderMultiplayerQuestion(evt, durationMs) {
   renderLevelBadge(evt.level);
   $('questionText').textContent = evt.q;
 
-  evt.options.forEach((opt, i) => {
-    $('optText' + i).textContent = opt;
-  });
-
-  resetOptionButtons(false);
+  renderAnswerButtons(evt.options);
   gameState.activeClientQId = evt.qId;
 
   setBanner('⚡ الأسرع إجابةً صحيحة يكسب (+1) — الإجابة الخاطئة (-1)!', '');
@@ -1707,7 +1811,7 @@ async function startSoloMillionaire() {
   resetOptionButtons(true);
 
   await Promise.all([
-    aiEngine.ensureReady(gameState.soloCategoryConfig, 4),
+    aiEngine.ensureReady(gameState.soloCategoryConfig, 4, gameState.soloChoiceCount),
     runCountdownOverlay('رحلة المليون تبدأ الآن!')
   ]);
   nextSoloQuestion();
@@ -1725,7 +1829,7 @@ async function nextSoloQuestion() {
   $('soloHelperBox').classList.add('hidden');
   renderSoloLadder();
 
-  const qObj = await aiEngine.nextQuestion(gameState.soloCategoryConfig);
+  const qObj = await aiEngine.nextQuestion(gameState.soloCategoryConfig, gameState.soloChoiceCount);
   gameState.currentRound = qObj;
   gameState.myAnsweredRoundId = null;
 
@@ -1738,11 +1842,7 @@ async function nextSoloQuestion() {
   renderLevelBadge(qObj.level);
   $('questionText').textContent = qObj.q;
 
-  qObj.options.forEach((opt, i) => {
-    $('optText' + i).textContent = opt;
-  });
-
-  resetOptionButtons(false);
+  renderAnswerButtons(qObj.options);
   setBanner(`💰 سؤال بقيمة ${SOLO_PRIZES[gameState.soloIndex]} $ — لديك ${soloLabel}!`, '');
   sfx.playQuestionReveal();
 
@@ -1800,7 +1900,7 @@ function revealSoloButtons(correctIdx, chosenIdx) {
   });
 }
 
-/* Visual Solo Lifelines */
+/* Visual Solo Lifelines (Adapts dynamically to 2, 4, 6, 8, or 10 options!) */
 function useSolo5050() {
   const q = gameState.currentRound;
   if (gameState.mode !== 'solo' || !q || gameState.soloLifelines.fifty || gameState.myAnsweredRoundId) return;
@@ -1808,9 +1908,10 @@ function useSolo5050() {
   gameState.soloLifelines.fifty = true;
   $('ll5050').classList.add('used');
 
-  const wrongIndices = [0, 1, 2, 3].filter((i) => i !== q.answer);
+  const wrongIndices = q.options.map((_, i) => i).filter((i) => i !== q.answer);
   wrongIndices.sort(() => Math.random() - 0.5);
-  wrongIndices.slice(0, 2).forEach((idx) => {
+  const removeCount = Math.max(1, Math.floor(q.options.length / 2));
+  wrongIndices.slice(0, removeCount).forEach((idx) => {
     const btn = document.querySelector(`.hex-option[data-idx="${idx}"]`);
     if (btn) {
       btn.classList.add('hidden-5050');
@@ -1826,25 +1927,31 @@ function useSoloAudience() {
   gameState.soloLifelines.audience = true;
   $('llAudience').classList.add('used');
 
-  const letters = ['أ', 'ب', 'ج', 'د'];
-  const high = Math.floor(62 + Math.random() * 16);
-  const rest1 = Math.floor(Math.random() * (100 - high - 10)) + 5;
-  const rest2 = Math.floor(Math.random() * (100 - high - rest1 - 3)) + 2;
-  const rest3 = Math.max(1, 100 - high - rest1 - rest2);
-  const others = [rest1, rest2, rest3];
-  const out = [0, 0, 0, 0];
+  const n = q.options.length;
+  const high = Math.floor(54 + Math.random() * 18);
+  let remaining = 100 - high;
+  const out = new Array(n).fill(0);
   out[q.answer] = high;
-  [0, 1, 2, 3].filter((i) => i !== q.answer).forEach((idx, k) => { out[idx] = others[k]; });
+  const wrongIdxs = q.options.map((_, i) => i).filter((i) => i !== q.answer);
+  wrongIdxs.forEach((idx, k) => {
+    if (k === wrongIdxs.length - 1) {
+      out[idx] = Math.max(1, remaining);
+    } else {
+      const share = Math.max(1, Math.floor(Math.random() * Math.max(2, remaining - (wrongIdxs.length - k - 1))));
+      out[idx] = share;
+      remaining = Math.max(1, remaining - share);
+    }
+  });
 
   const box = $('soloHelperBox');
   box.innerHTML = `
     <div style="font-weight:800;color:#7dd3fc;font-size:0.84rem;">📊 نتائج تصويت الجمهور داخل الاستوديو</div>
-    <div class="audience-chart">
+    <div class="audience-chart ${n > 4 ? 'many-bars' : ''}">
       ${out.map((p, i) => `
         <div class="aud-col">
           <span class="aud-pct">${p}%</span>
           <div class="aud-bar-wrap"><div class="aud-bar" style="height:${p}%"></div></div>
-          <span class="aud-let">${letters[i]}</span>
+          <span class="aud-let">${OPTION_LETTERS[i] || (i + 1)}</span>
         </div>
       `).join('')}
     </div>
@@ -1859,14 +1966,14 @@ function useSoloFriend() {
   gameState.soloLifelines.friend = true;
   $('llFriend').classList.add('used');
 
-  const letters = ['أ', 'ب', 'ج', 'د'];
+  const letter = OPTION_LETTERS[q.answer] || String(q.answer + 1);
   const box = $('soloHelperBox');
   box.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;text-align:right;">
       <span style="font-size:1.8rem;">📞</span>
       <div>
         <strong style="color:#fff3b0;display:block;font-size:0.86rem;">صديقك الخبير على الخط:</strong>
-        <span style="font-size:0.86rem;color:#e0f2fe;">«بسرعة قبل انتهاء الوقت! أنا متأكد بنسبة كبيرة أن الإجابة هي <strong>(${letters[q.answer]}) ${escapeHtml(q.options[q.answer])}</strong>!»</span>
+        <span style="font-size:0.86rem;color:#e0f2fe;">«بسرعة قبل انتهاء الوقت! أنا متأكد بنسبة كبيرة أن الإجابة هي <strong>(${letter}) ${escapeHtml(q.options[q.answer])}</strong>!»</span>
       </div>
     </div>
   `;
@@ -1948,7 +2055,7 @@ function applyCategoryPreset(preset, targetCfg) {
     ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['أسطوري'] }; });
   } else if (preset === 'football') {
     ALL_CATEGORIES.forEach((c) => {
-      const isFb = c === 'كرة قدم محلي' || c === 'كرة قدم دولي';
+      const isFb = c === 'كرة قدم محلي' || c === 'كرة قدم دولي' || c === 'مسيرة لاعب';
       cfg[c] = { enabled: isFb, levels: cfg[c].levels.length ? [...cfg[c].levels] : [...ALL_LEVELS] };
     });
   }
@@ -2020,6 +2127,12 @@ function renderCategoryMatrix(containerId, config, editable, onUpdate) {
   });
 }
 
+function syncSoloChoiceCountUI() {
+  document.querySelectorAll('#soloChoiceCountSelector .mini-pill-opt').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.choices) === gameState.soloChoiceCount);
+  });
+}
+
 function syncSoloMatrixUI() {
   const cfg = normalizeCategoryConfig(gameState.soloCategoryConfig);
   const count = getEnabledEntries(cfg).length;
@@ -2069,6 +2182,10 @@ function updateLobbyUI() {
     btn.classList.toggle('active', Number(btn.dataset.sec) === getRoomDurationSec());
     btn.disabled = !gameState.isHost;
   });
+  document.querySelectorAll('#choiceCountSelector .pill-opt').forEach((btn) => {
+    btn.classList.toggle('active', Number(btn.dataset.choices) === getRoomChoiceCount());
+    btn.disabled = !gameState.isHost;
+  });
 
   const presetsRow = $('lobbyPresetsRow');
   if (presetsRow) presetsRow.classList.toggle('hidden', !gameState.isHost);
@@ -2081,7 +2198,7 @@ function updateLobbyUI() {
     syncSoloMatrixUI();
     updateLobbyUI();
     publishHostRoomState('lobby');
-    aiEngine.ensureReady(gameState.settings.categoryConfig, 5);
+    aiEngine.ensureReady(gameState.settings.categoryConfig, 5, getRoomChoiceCount());
   });
 
   updateLobbyReadyIndicator();
@@ -2243,6 +2360,7 @@ function initApp() {
   renderAvatarStrip();
   renderHomeStats();
   syncSoloTimeUI();
+  syncSoloChoiceCountUI();
   syncSoloMatrixUI();
   updateSeenCountUI();
 
@@ -2287,6 +2405,21 @@ function initApp() {
         gameState.settings.questionSeconds = sec;
         localStorage.setItem('mm_time_sec', String(sec));
         syncSoloTimeUI();
+      }
+    });
+  });
+
+  // Solo configurable choice count selector (2 / 4 / 6 / 8 / 10)
+  document.querySelectorAll('#soloChoiceCountSelector .mini-pill-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      haptic('tap');
+      const n = Number(btn.dataset.choices);
+      if (ALLOWED_CHOICE_COUNTS.includes(n)) {
+        gameState.soloChoiceCount = n;
+        gameState.settings.choiceCount = n;
+        localStorage.setItem('mm_choice_count', String(n));
+        aiEngine.clearQueue();
+        syncSoloChoiceCountUI();
       }
     });
   });
@@ -2407,6 +2540,24 @@ function initApp() {
     });
   });
 
+  document.querySelectorAll('#choiceCountSelector .pill-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!gameState.isHost) return;
+      haptic('tap');
+      const n = Number(btn.dataset.choices);
+      if (ALLOWED_CHOICE_COUNTS.includes(n)) {
+        gameState.settings.choiceCount = n;
+        gameState.soloChoiceCount = n;
+        localStorage.setItem('mm_choice_count', String(n));
+        aiEngine.clearQueue();
+        syncSoloChoiceCountUI();
+        updateLobbyUI();
+        publishHostRoomState('lobby');
+        aiEngine.ensureReady(gameState.settings.categoryConfig, 5, n);
+      }
+    });
+  });
+
   document.querySelectorAll('#lobbyPresetsRow .preset-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
@@ -2419,7 +2570,7 @@ function initApp() {
       syncSoloMatrixUI();
       updateLobbyUI();
       publishHostRoomState('lobby');
-      aiEngine.ensureReady(gameState.settings.categoryConfig, 5);
+      aiEngine.ensureReady(gameState.settings.categoryConfig, 5, getRoomChoiceCount());
     });
   });
 
@@ -2442,7 +2593,7 @@ function initApp() {
     }
     if (!views.game.classList.contains('active')) return;
     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-    const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3 };
+    const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9 };
     if (keyMap[e.key] !== undefined) {
       const btn = document.querySelector(`.hex-option[data-idx="${keyMap[e.key]}"]`);
       if (btn && !btn.disabled) btn.click();
@@ -2532,7 +2683,7 @@ function initApp() {
     const val = $('inputApiKey').value.trim();
     if (val) localStorage.setItem('mm_gemini_key', val);
     try {
-      const batch = await aiEngine.fetchBatchFromGemini(gameState.settings.categoryConfig, 1);
+      const batch = await aiEngine.fetchBatchFromGemini(gameState.settings.categoryConfig, 1, getRoomChoiceCount());
       out.style.color = '#6ee7b7';
       out.textContent = `✅ نجح التوليد! [${batch[0].category} • ${batch[0].level}]: ${batch[0].q}`;
     } catch (e) {
