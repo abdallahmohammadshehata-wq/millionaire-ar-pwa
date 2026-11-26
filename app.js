@@ -4,7 +4,7 @@ import { FALLBACK_QUESTIONS } from './questions-bank.js?v=15';
    CONFIG & CONSTANTS
    ========================================================================= */
 const DEFAULT_GEMINI_KEY = '';
-const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemma-4-26b-a4b-it', 'gemini-4-hydrogen'];
+const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemma-4-26b-a4b-it', 'gemini-4-hydrogen'];
 const ALLOWED_TIME_OPTIONS = [10, 15, 20, 30, 60];
 const SAVED_TIME_SEC = Number(localStorage.getItem('mm_time_sec'));
 const DEFAULT_QUESTION_SECONDS = ALLOWED_TIME_OPTIONS.includes(SAVED_TIME_SEC) ? SAVED_TIME_SEC : 10;
@@ -556,6 +556,7 @@ class AIQuestionGenerator {
   constructor() {
     this.queue = [];
     this.isFetching = false;
+    this.pendingFetch = null;
     this.generationId = 0;
     this.sessionAsked = new Set();
     this.sessionAnswers = new Set();
@@ -570,6 +571,7 @@ class AIQuestionGenerator {
     this.generationId += 1;
     this.queue = [];
     this.isFetching = false;
+    this.pendingFetch = null;
     updateLobbyReadyIndicator();
   }
 
@@ -818,25 +820,33 @@ class AIQuestionGenerator {
       updateLobbyReadyIndicator();
       return;
     }
-    if (this.isFetching) return;
+    if (this.pendingFetch) {
+      await this.pendingFetch;
+      if (this.queue.length >= minInitial) return;
+    }
     const reqGen = this.generationId;
     this.isFetching = true;
     updateLobbyReadyIndicator();
-    try {
-      const fresh = await this.fetchBatchFromGemini(categoryConfig, 8, choiceCount);
-      if (reqGen === this.generationId) {
-        for (const item of fresh) {
-          if (!this.isDuplicateCandidate(item)) this.queue.push(item);
+    const task = (async () => {
+      try {
+        const fresh = await this.fetchBatchFromGemini(categoryConfig, 8, choiceCount);
+        if (reqGen === this.generationId) {
+          for (const item of fresh) {
+            if (!this.isDuplicateCandidate(item)) this.queue.push(item);
+          }
+        }
+      } catch (e) {
+        console.warn('AI batch fallback triggered:', e.message);
+      } finally {
+        if (reqGen === this.generationId) {
+          this.isFetching = false;
+          this.pendingFetch = null;
+          updateLobbyReadyIndicator();
         }
       }
-    } catch (e) {
-      console.warn('AI batch fallback triggered:', e.message);
-    } finally {
-      if (reqGen === this.generationId) {
-        this.isFetching = false;
-        updateLobbyReadyIndicator();
-      }
-    }
+    })();
+    this.pendingFetch = task;
+    await task;
   }
 
   async nextQuestion(categoryConfig, choiceCount = 4) {
@@ -857,7 +867,7 @@ class AIQuestionGenerator {
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
       const reqGen = this.generationId;
       this.isFetching = true;
-      this.fetchBatchFromGemini(normCfg, 8, desired)
+      const bgTask = this.fetchBatchFromGemini(normCfg, 8, desired)
         .then((fresh) => {
           if (reqGen === this.generationId) {
             for (const item of fresh) {
@@ -868,8 +878,12 @@ class AIQuestionGenerator {
         })
         .catch(() => { })
         .finally(() => {
-          if (reqGen === this.generationId) this.isFetching = false;
+          if (reqGen === this.generationId) {
+            this.isFetching = false;
+            this.pendingFetch = null;
+          }
         });
+      this.pendingFetch = bgTask;
     }
 
     const q = this.queue.shift() || this.pullFallbackQuestion(normCfg, desired);
@@ -2866,7 +2880,15 @@ function initApp() {
     }
     window.history.replaceState({}, document.title, location.pathname + location.search);
   }
-  if (getApiKey()) setAiStatusPill(true, 'Gemini Live');
+  if (getApiKey()) {
+    setAiStatusPill(true, 'Gemini Live');
+  } else {
+    const pill = $('aiStatusPill');
+    if (pill) {
+      pill.innerHTML = `<span class="ai-dot" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span> بنك محلي (اضغط ⚙️ لتفعيل AI اللانهائي)`;
+      pill.style.color = '#fbbf24';
+    }
+  }
 
   // Check URL deep link (?room=XXXXX)
   const params = new URLSearchParams(location.search);
