@@ -1,4 +1,4 @@
-import { FALLBACK_QUESTIONS } from './questions-bank.js';
+import { FALLBACK_QUESTIONS } from './questions-bank.js?v=15';
 
 /* =========================================================================
    CONFIG & CONSTANTS
@@ -517,10 +517,13 @@ class AIQuestionGenerator {
   constructor() {
     this.queue = [];
     this.isFetching = false;
+    this.generationId = 0;
   }
 
   clearQueue() {
+    this.generationId += 1;
     this.queue = [];
+    this.isFetching = false;
     updateLobbyReadyIndicator();
   }
 
@@ -635,8 +638,15 @@ class AIQuestionGenerator {
         const seenSet = new Set(getSeenQuestions());
         const valid = [];
         for (const item of list) {
-          const catEntry = normCfg[item.category];
-          const allowedForCat = catEntry && catEntry.enabled ? catEntry.levels : entries[0].levels;
+          let catName = String(item.category || '').trim();
+          // If only 1 category was requested, normalize slight AI phrasing of that single category name
+          if ((!normCfg[catName] || !normCfg[catName].enabled) && entries.length === 1) {
+            catName = entries[0].category;
+          }
+          const catEntry = normCfg[catName];
+          if (!catEntry || !catEntry.enabled) continue; // Strictly reject disabled categories!
+          item.category = catName;
+          const allowedForCat = catEntry.levels;
           if (!allowedForCat.includes(item.level)) {
             item.level = allowedForCat[Math.floor(Math.random() * allowedForCat.length)];
           }
@@ -691,35 +701,54 @@ class AIQuestionGenerator {
       return;
     }
     if (this.isFetching) return;
+    const reqGen = this.generationId;
     this.isFetching = true;
     updateLobbyReadyIndicator();
     try {
       const fresh = await this.fetchBatchFromGemini(categoryConfig, 8, choiceCount);
-      this.queue.push(...fresh);
+      // Discard results if user changed categories/levels/choiceCount while request was in-flight!
+      if (reqGen === this.generationId) {
+        this.queue.push(...fresh);
+      }
     } catch (e) {
       console.warn('AI batch fallback triggered:', e.message);
     } finally {
-      this.isFetching = false;
-      updateLobbyReadyIndicator();
+      if (reqGen === this.generationId) {
+        this.isFetching = false;
+        updateLobbyReadyIndicator();
+      }
     }
   }
 
   async nextQuestion(categoryConfig, choiceCount = 4) {
+    const normCfg = normalizeCategoryConfig(categoryConfig);
+    const desired = ALLOWED_CHOICE_COUNTS.includes(Number(choiceCount)) ? Number(choiceCount) : 4;
+
+    // Purge any stale queued questions that don't match the current enabled categories or choiceCount
+    this.queue = this.queue.filter(
+      (q) => normCfg[q.category]?.enabled && Array.isArray(q.options) && q.options.length === desired
+    );
+
     if (this.queue.length === 0 && getApiKey()) {
-      await this.ensureReady(categoryConfig, 1, choiceCount);
+      await this.ensureReady(normCfg, 1, desired);
     }
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
+      const reqGen = this.generationId;
       this.isFetching = true;
-      this.fetchBatchFromGemini(categoryConfig, 8, choiceCount)
+      this.fetchBatchFromGemini(normCfg, 8, desired)
         .then((fresh) => {
-          this.queue.push(...fresh);
-          updateLobbyReadyIndicator();
+          if (reqGen === this.generationId) {
+            this.queue.push(...fresh);
+            updateLobbyReadyIndicator();
+          }
         })
         .catch(() => {})
-        .finally(() => { this.isFetching = false; });
+        .finally(() => {
+          if (reqGen === this.generationId) this.isFetching = false;
+        });
     }
 
-    const q = this.queue.shift() || this.pullFallbackQuestion(categoryConfig, choiceCount);
+    const q = this.queue.shift() || this.pullFallbackQuestion(normCfg, desired);
     markQuestionSeen(q.q);
     updateSeenCountUI();
     return q;
