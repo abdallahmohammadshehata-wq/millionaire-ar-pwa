@@ -1,9 +1,9 @@
-const CACHE_NAME = 'millionaire-ar-pwa-v10';
+const CACHE_NAME = 'millionaire-ar-pwa-v11';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=10',
-  './app.js?v=10',
+  './styles.css?v=11',
+  './app.js?v=11',
   './questions-bank.js',
   './manifest.json',
   './icon.svg',

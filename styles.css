@@ -3199,3 +3199,99 @@ body[data-mood="win"] .beam-2 {
   color: #ffffff !important;
   border-color: #92400e !important;
 }
+
+/* ==================== UNIFIED GREEN -> RED 5-STEP SPECTRUM (FILTER = PER-CATEGORY = HUD) ==================== */
+/* 1: Green (سهل) -> 2: Yellow (متوسط) -> 3: Orange (صعب) -> 4: Red (صعب جداً) -> 5: Deep Dark Fiery Red (أسطوري) */
+
+/* --- Dark Mode: Exact same colors on Filter Presets, Per-Category Buttons & HUD Badge --- */
+.preset-chip.preset-easy,
+.row-lvl-btn.lvl-easy,
+.level-pill.lvl-easy {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.34), rgba(16, 185, 129, 0.26)) !important;
+  color: #86efac !important;
+  border-color: #22c55e !important;
+}
+.preset-chip.preset-med,
+.row-lvl-btn.lvl-med,
+.level-pill.lvl-med {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.34), rgba(202, 138, 4, 0.28)) !important;
+  color: #fef08a !important;
+  border-color: #eab308 !important;
+}
+.preset-chip.preset-hard,
+.row-lvl-btn.lvl-hard,
+.level-pill.lvl-hard {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.38), rgba(234, 88, 12, 0.34)) !important;
+  color: #fed7aa !important;
+  border-color: #f97316 !important;
+}
+.preset-chip.preset-vhard,
+.row-lvl-btn.lvl-vhard,
+.level-pill.lvl-vhard {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.44), rgba(220, 38, 38, 0.42)) !important;
+  color: #fecaca !important;
+  border-color: #ef4444 !important;
+}
+.preset-chip.preset-legend,
+.row-lvl-btn.lvl-legend,
+.level-pill.lvl-legend {
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.85), rgba(127, 29, 29, 0.92)) !important;
+  color: #ffe4e6 !important;
+  border-color: #f87171 !important;
+}
+
+/* Unselected vs Selected clarity on per-category buttons (same exact colors, dim when off, glowing when active) */
+.row-lvl-btn {
+  opacity: 0.42;
+  box-shadow: none !important;
+}
+.row-lvl-btn.active {
+  opacity: 1;
+}
+.row-lvl-btn.lvl-easy.active { box-shadow: 0 0 11px rgba(34, 197, 94, 0.42) !important; }
+.row-lvl-btn.lvl-med.active { box-shadow: 0 0 11px rgba(234, 179, 8, 0.42) !important; }
+.row-lvl-btn.lvl-hard.active { box-shadow: 0 0 11px rgba(249, 115, 22, 0.46) !important; }
+.row-lvl-btn.lvl-vhard.active { box-shadow: 0 0 12px rgba(239, 68, 68, 0.5) !important; }
+.row-lvl-btn.lvl-legend.active { box-shadow: 0 0 15px rgba(220, 38, 38, 0.68) !important; }
+
+.question-frame[data-level="lvl-legend"] {
+  background: linear-gradient(135deg, #fca5a5 0%, #ef4444 45%, #991b1b 100%);
+  filter: drop-shadow(0 10px 30px rgba(220, 38, 38, 0.52));
+}
+
+/* --- Light Mode: Exact same Green -> Yellow -> Orange -> Red -> Deep Dark Red --- */
+:root[data-theme="light"] .preset-chip.preset-easy,
+:root[data-theme="light"] .row-lvl-btn.lvl-easy,
+:root[data-theme="light"] .level-pill.lvl-easy {
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important;
+  color: #166534 !important;
+  border-color: #22c55e !important;
+}
+:root[data-theme="light"] .preset-chip.preset-med,
+:root[data-theme="light"] .row-lvl-btn.lvl-med,
+:root[data-theme="light"] .level-pill.lvl-med {
+  background: linear-gradient(135deg, #fef9c3, #fde047) !important;
+  color: #854d0e !important;
+  border-color: #eab308 !important;
+}
+:root[data-theme="light"] .preset-chip.preset-hard,
+:root[data-theme="light"] .row-lvl-btn.lvl-hard,
+:root[data-theme="light"] .level-pill.lvl-hard {
+  background: linear-gradient(135deg, #ffedd5, #fdba74) !important;
+  color: #9a3412 !important;
+  border-color: #f97316 !important;
+}
+:root[data-theme="light"] .preset-chip.preset-vhard,
+:root[data-theme="light"] .row-lvl-btn.lvl-vhard,
+:root[data-theme="light"] .level-pill.lvl-vhard {
+  background: linear-gradient(135deg, #fee2e2, #fca5a5) !important;
+  color: #991b1b !important;
+  border-color: #ef4444 !important;
+}
+:root[data-theme="light"] .preset-chip.preset-legend,
+:root[data-theme="light"] .row-lvl-btn.lvl-legend,
+:root[data-theme="light"] .level-pill.lvl-legend {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d) !important;
+  color: #ffffff !important;
+  border-color: #7f1d1d !important;
+}
