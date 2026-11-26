@@ -3038,3 +3038,100 @@ body[data-mood="win"] .beam-2 {
   background: radial-gradient(circle at center, rgba(255, 255, 255, 0.94), rgba(235, 241, 253, 0.98));
 }
 :root[data-theme="light"] .countdown-caption { color: #0f1b44; }
+
+/* ==================== FULL 5-STEP DIFFICULTY COLOR SPECTRUM (DARK & LIGHT) ==================== */
+/* Progression: 1. Emerald Green -> 2. Golden Amber -> 3. Blazing Orange -> 4. Deep Crimson -> 5. Mythic Crimson-Violet-Gold */
+
+/* --- Dark Mode Spectrum --- */
+.row-lvl-btn.lvl-easy.active,
+.level-pill.lvl-easy,
+.preset-chip.preset-easy {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(5, 150, 105, 0.34)) !important;
+  color: #6ee7b7 !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.24);
+}
+.row-lvl-btn.lvl-med.active,
+.level-pill.lvl-med,
+.preset-chip.preset-med {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.25), rgba(217, 119, 6, 0.34)) !important;
+  color: #fde68a !important;
+  border-color: #facc15 !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.26);
+}
+.row-lvl-btn.lvl-hard.active,
+.level-pill.lvl-hard,
+.preset-chip.preset-hard {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.32), rgba(234, 88, 12, 0.42)) !important;
+  color: #fed7aa !important;
+  border-color: #fb923c !important;
+  box-shadow: 0 0 11px rgba(249, 115, 22, 0.32);
+}
+.row-lvl-btn.lvl-vhard.active,
+.level-pill.lvl-vhard,
+.preset-chip.preset-vhard {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.36), rgba(185, 28, 28, 0.48)) !important;
+  color: #fecaca !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 13px rgba(239, 68, 68, 0.38);
+}
+.row-lvl-btn.lvl-legend.active,
+.level-pill.lvl-legend,
+.preset-chip.preset-legend {
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.72) 0%, rgba(126, 34, 206, 0.72) 55%, rgba(217, 119, 6, 0.78) 100%) !important;
+  color: #fffbeb !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.48), 0 0 8px rgba(168, 85, 247, 0.42);
+}
+
+/* Subtle escalating glow on the active Question Lozenge */
+.question-frame[data-level="lvl-easy"] { filter: drop-shadow(0 10px 24px rgba(16, 185, 129, 0.22)); }
+.question-frame[data-level="lvl-med"] { filter: drop-shadow(0 10px 24px rgba(245, 158, 11, 0.25)); }
+.question-frame[data-level="lvl-hard"] { filter: drop-shadow(0 10px 26px rgba(249, 115, 22, 0.32)); }
+.question-frame[data-level="lvl-vhard"] { filter: drop-shadow(0 10px 28px rgba(239, 68, 68, 0.38)); }
+.question-frame[data-level="lvl-legend"] {
+  background: linear-gradient(135deg, #fde047 0%, #f97316 32%, #dc2626 65%, #a855f7 100%);
+  filter: drop-shadow(0 10px 32px rgba(245, 158, 11, 0.45));
+}
+
+/* --- Light Mode Spectrum (Crisp, High-Contrast 5-Step Progression) --- */
+:root[data-theme="light"] .row-lvl-btn.lvl-easy.active,
+:root[data-theme="light"] .level-pill.lvl-easy,
+:root[data-theme="light"] .preset-chip.preset-easy {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0) !important;
+  color: #065f46 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.18);
+}
+:root[data-theme="light"] .row-lvl-btn.lvl-med.active,
+:root[data-theme="light"] .level-pill.lvl-med,
+:root[data-theme="light"] .preset-chip.preset-med {
+  background: linear-gradient(135deg, #fef9c3, #fde68a) !important;
+  color: #854d0e !important;
+  border-color: #eab308 !important;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.22);
+}
+:root[data-theme="light"] .row-lvl-btn.lvl-hard.active,
+:root[data-theme="light"] .level-pill.lvl-hard,
+:root[data-theme="light"] .preset-chip.preset-hard {
+  background: linear-gradient(135deg, #ffedd5, #fed7aa) !important;
+  color: #9a3412 !important;
+  border-color: #f97316 !important;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.22);
+}
+:root[data-theme="light"] .row-lvl-btn.lvl-vhard.active,
+:root[data-theme="light"] .level-pill.lvl-vhard,
+:root[data-theme="light"] .preset-chip.preset-vhard {
+  background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
+  color: #991b1b !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.24);
+}
+:root[data-theme="light"] .row-lvl-btn.lvl-legend.active,
+:root[data-theme="light"] .level-pill.lvl-legend,
+:root[data-theme="light"] .preset-chip.preset-legend {
+  background: linear-gradient(135deg, #b91c1c 0%, #7e22ce 55%, #d97706 100%) !important;
+  color: #ffffff !important;
+  border-color: #b45309 !important;
+  box-shadow: 0 4px 14px rgba(185, 28, 28, 0.34);
+}

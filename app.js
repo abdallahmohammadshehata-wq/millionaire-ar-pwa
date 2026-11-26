@@ -40,8 +40,8 @@ const ALL_LEVELS = ['سهل', 'متوسط', 'صعب', 'صعب جداً', 'أسط
 const LEVEL_META = {
   'سهل': { emoji: '🟢', cls: 'lvl-easy', label: 'سهل' },
   'متوسط': { emoji: '🟡', cls: 'lvl-med', label: 'متوسط' },
-  'صعب': { emoji: '🔴', cls: 'lvl-hard', label: 'صعب' },
-  'صعب جداً': { emoji: '🟣', cls: 'lvl-vhard', label: 'صعب جداً' },
+  'صعب': { emoji: '🟠', cls: 'lvl-hard', label: 'صعب' },
+  'صعب جداً': { emoji: '🔴', cls: 'lvl-vhard', label: 'صعب جداً' },
   'أسطوري': { emoji: '🔥', cls: 'lvl-legend', label: 'أسطوري' }
 };
 
@@ -1559,10 +1559,13 @@ function prepareGameStageUI(mode) {
 
 function renderLevelBadge(level) {
   const el = $('levelBadge');
-  if (!el) return;
   const meta = LEVEL_META[level] || LEVEL_META['متوسط'];
-  el.className = `hud-pill level-pill ${meta.cls}`;
-  el.textContent = `${meta.emoji} ${meta.label}`;
+  if (el) {
+    el.className = `hud-pill level-pill ${meta.cls}`;
+    el.textContent = `${meta.emoji} ${meta.label}`;
+  }
+  const qBox = $('questionBox');
+  if (qBox) qBox.dataset.level = meta.cls;
 }
 
 function renderMultiplayerQuestion(evt, durationMs) {
