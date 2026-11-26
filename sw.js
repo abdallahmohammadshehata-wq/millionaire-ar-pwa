@@ -1,51 +1,28 @@
-const CACHE_NAME = 'millionaire-ar-pwa-v18';
-const CORE_ASSETS = [
-  './',
-  './index.html',
-  './styles.css?v=16',
-  './app.js?v=18',
-  './questions-bank.js?v=15',
-  './manifest.json',
-  './icon.svg',
-  './icon-192.png',
-  './icon-512.png'
-];
+// Network-first for the app itself (so updates always arrive), cache fallback for offline play.
+const CACHE = 'mm-ar-v2-__BUILD__';
+const CORE = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/data.js', 'js/engine.js', 'js/net.js', 'js/bank.js', 'js/config.js',
+  'vendor/mqtt.min.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).then(() => self.skipWaiting())
-  );
+self.addEventListener('install', (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
-
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  if (
-    event.request.method !== 'GET' ||
-    url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('emqx.io') ||
-    url.hostname.includes('hivemq.com') ||
-    url.hostname.includes('mosquitto.org')
-  ) {
+self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET') return;
+  if (url.hostname.endsWith('googleapis.com') && !url.hostname.startsWith('fonts')) return; // never cache AI calls
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (isFont) {
+    e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+      const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return res;
+    })));
     return;
   }
-
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && (url.origin === self.location.origin || url.hostname.includes('unpkg.com') || url.hostname.includes('jsdelivr.net'))) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
-  );
+  if (url.origin !== location.origin) return;
+  e.respondWith(fetch(e.request).then((res) => {
+    if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
+    return res;
+  }).catch(() => caches.match(e.request, { ignoreSearch: true }).then((hit) => hit || caches.match('index.html'))));
 });
