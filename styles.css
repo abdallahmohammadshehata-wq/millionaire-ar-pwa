@@ -3342,3 +3342,250 @@ body[data-mood="win"] .beam-2 {
 }
 .audience-chart.many-bars .aud-col { width: 42px; height: 74px; }
 .audience-chart.many-bars .aud-bar-wrap { width: 22px; }
+
+/* ==================== NATIVE MOBILE APP RESPONSIVENESS & PWA ERGONOMICS (v16) ==================== */
+html {
+  overscroll-behavior-y: contain;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  max-width: 100vw;
+  overflow-x: hidden;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+button, a, input, select {
+  touch-action: manipulation;
+}
+
+/* Prevent iOS Safari auto-zoom on form inputs */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+.text-input,
+.code-input {
+  font-size: 16px;
+}
+
+/* Smooth momentum scroll strips */
+.live-scoreboard,
+.avatar-strip {
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.live-scoreboard::-webkit-scrollbar { display: none; }
+.live-scoreboard { scrollbar-width: none; }
+
+/* ---- Tablets & Phones (<= 768px) ---- */
+@media (max-width: 768px) {
+  .topbar {
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+  }
+  .brand { gap: 8px; min-width: 0; }
+  .brand-logo-wrap { width: 36px; height: 36px; border-radius: 10px; }
+  .brand-title { font-size: 0.96rem; white-space: nowrap; }
+  .brand-sub { font-size: 0.66rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions { gap: 6px; flex-shrink: 0; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 10px; font-size: 0.98rem; }
+  .icon-pill { padding: 6px 10px; font-size: 0.76rem; }
+
+  .app-shell {
+    padding: 10px 10px calc(22px + env(safe-area-inset-bottom, 0px));
+  }
+  .glass-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  /* Compact Hero so actions appear immediately on mobile */
+  .hero-emblem { padding: 4px 4px 12px; }
+  .hero-logo { width: 70px; height: 70px; }
+  .emblem-orbit { width: 88px; height: 88px; top: 0; }
+  .emblem-glow { width: 120px; height: 120px; }
+  .hero-heading { font-size: 1.48rem; }
+  .hero-tagline { font-size: 0.8rem; line-height: 1.45; }
+
+  /* Stats Ribbon */
+  .stats-ribbon { gap: 7px; margin-bottom: 10px; }
+  .stat-pill { padding: 8px 8px; gap: 6px; border-radius: 13px; }
+  .stat-pill small { font-size: 0.65rem; }
+  .stat-pill strong { font-size: 0.88rem; }
+
+  /* Profile & Mode Cards */
+  .profile-card, .home-actions-grid, .solo-banner { margin-bottom: 11px; }
+  .home-actions-grid { gap: 11px; }
+  .mode-icon-badge { width: 42px; height: 42px; font-size: 1.35rem; border-radius: 12px; }
+  .mode-card h2 { font-size: 1.04rem; }
+  .mode-card p { font-size: 0.81rem; }
+  .hex-action-btn { min-height: 46px; font-size: 0.94rem; padding: 10px 16px; }
+
+  /* Solo Banner & Pills */
+  .solo-banner-left { align-items: flex-start; gap: 10px; }
+  .solo-trophy-orb { width: 44px; height: 44px; font-size: 1.45rem; border-radius: 13px; }
+  .solo-info h3 { font-size: 0.96rem; }
+  .solo-time-row { gap: 6px; margin-top: 8px; }
+  .mini-pill-selector { flex-wrap: wrap; gap: 4px; }
+  .mini-pill-opt { padding: 5px 9px; font-size: 0.74rem; min-height: 32px; }
+
+  /* Lobby Mobile App Layout */
+  .lobby-header-card { margin-bottom: 11px; }
+  .code-tiles { gap: 6px; margin-bottom: 12px; }
+  .code-tile {
+    width: clamp(40px, 13.5vw, 52px);
+    height: clamp(48px, 15vw, 60px);
+    font-size: clamp(1.45rem, 6vw, 2rem);
+    border-radius: 12px;
+  }
+  .share-btns-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .share-btns-row .mini-btn {
+    padding: 8px 6px;
+    font-size: 0.74rem;
+    white-space: nowrap;
+  }
+
+  /* Per-Category 5-Button Matrix — thumb-friendly 5-col grid */
+  .cat-matrix-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+  }
+  .cat-toggle-btn {
+    font-size: 0.84rem;
+    padding: 2px 2px;
+  }
+  .cat-row-levels {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }
+  .row-lvl-btn {
+    padding: 6px 2px;
+    min-height: 33px;
+    font-size: 0.68rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Sticky Start Match CTA on mobile Lobby */
+  .host-start-area {
+    position: sticky;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    padding: 10px;
+    margin: 12px -6px -6px;
+    border-radius: 14px;
+    background: var(--bg-card-strong);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(246, 192, 56, 0.35);
+    box-shadow: 0 -6px 22px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Game Stage — Maximum Screen Space & Zero-Scroll Ergonomics */
+  .game-hud { gap: 5px; margin-bottom: 6px; }
+  .hud-pill { padding: 4px 9px; font-size: 0.72rem; }
+  .mini-btn { padding: 6px 10px; font-size: 0.76rem; }
+  .timer-orb-wrap, .timer-svg { width: 58px; height: 58px; }
+  .timer-number { font-size: 1.32rem; }
+  .timer-unit { font-size: 0.56rem; }
+  .time-bar-track { height: 5px; margin-bottom: 7px; }
+
+  .live-scoreboard { gap: 6px; margin-bottom: 5px; padding-bottom: 4px; }
+  .score-chip { padding: 5px 9px; border-radius: 10px; gap: 5px; }
+  .sc-name { font-size: 0.76rem; max-width: 78px; }
+  .sc-pts { font-size: 0.76rem; padding: 1px 6px; }
+
+  .lifelines-bar { gap: 5px; margin-bottom: 7px; }
+  .lifeline-btn { padding: 5px 3px; min-height: 44px; border-width: 1.5px; }
+  .ll-ico { font-size: 0.86rem; }
+  .lifeline-btn small { font-size: 0.62rem; }
+
+  .stage-status-banner {
+    padding: 7px 10px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    border-radius: 11px;
+  }
+
+  /* Full-width Hexagonal Stage on Mobile (hide side rails to maximize text width) */
+  .millionaire-stage { gap: 10px; }
+  .stage-line, .stage-line-sm { display: none; }
+  .hex-frame {
+    clip-path: polygon(13px 0%, calc(100% - 13px) 0%, 100% 50%, calc(100% - 13px) 100%, 13px 100%, 0% 50%);
+  }
+  .hex-inner {
+    min-height: 78px;
+    padding: 13px 18px;
+    clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%);
+  }
+  .question-text { font-size: 0.98rem; line-height: 1.48; }
+
+  .answers-grid { gap: 8px; }
+  .hex-option {
+    clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0% 50%);
+  }
+  .hex-opt-inner {
+    min-height: 48px;
+    padding: 8px 16px;
+    font-size: 0.92rem;
+    clip-path: polygon(11px 0%, calc(100% - 11px) 0%, 100% 50%, calc(100% - 11px) 100%, 11px 100%, 0% 50%);
+  }
+  .ingame-emoji-bar { margin-top: 10px; }
+  .emoji-trigger { width: 38px; height: 38px; }
+
+  /* Results Podium Mobile */
+  .results-card { padding: 18px 12px; }
+  .trophy-icon { font-size: 3rem; }
+  .results-title { font-size: 1.38rem; }
+  .visual-podium { gap: 6px; margin-bottom: 16px; }
+  .pillar-avatar { font-size: 1.65rem; }
+  .pillar-name { font-size: 0.76rem; max-width: 86px; }
+  .pillar-1 .pillar-block { min-height: 98px; }
+  .pillar-2 .pillar-block { min-height: 76px; }
+  .pillar-3 .pillar-block { min-height: 62px; }
+  .results-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .results-actions .hex-action-btn { width: 100%; }
+}
+
+/* ---- Native Bottom-Sheet Modal on Small Mobile Screens (<= 560px) ---- */
+@media (max-width: 560px) {
+  .modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+  .modal-card {
+    max-width: 100%;
+    max-height: 88dvh;
+    overflow-y: auto;
+    border-radius: 22px 22px 0 0;
+    padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .modal-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- Extra-Compact Phones (<= 375px, e.g. iPhone SE) ---- */
+@media (max-width: 375px) {
+  .join-row { flex-direction: column; }
+  .join-row .blue-btn { width: 100%; }
+  .pill-selector { grid-template-columns: repeat(2, 1fr); }
+  .pill-selector-5 { grid-template-columns: repeat(3, 1fr); }
+  .brand-sub { display: none; }
+  .row-lvl-btn { font-size: 0.63rem; padding: 5px 1px; }
+}
