@@ -5,7 +5,7 @@ import { FALLBACK_QUESTIONS } from './questions-bank.js';
    ========================================================================= */
 const DEFAULT_GEMINI_KEY = '';
 const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemma-4-26b-a4b-it', 'gemini-4-hydrogen'];
-const ALLOWED_TIME_OPTIONS = [10, 15, 20, 30];
+const ALLOWED_TIME_OPTIONS = [10, 15, 20, 30, 60];
 const SAVED_TIME_SEC = Number(localStorage.getItem('mm_time_sec'));
 const DEFAULT_QUESTION_SECONDS = ALLOWED_TIME_OPTIONS.includes(SAVED_TIME_SEC) ? SAVED_TIME_SEC : 10;
 const CIRCUMFERENCE = 2 * Math.PI * 43; // r=43 -> ~270.17
@@ -108,6 +108,7 @@ const SUBTOPIC_SEEDS = [
 ];
 
 function formatArabicSeconds(sec) {
+  if (sec === 60) return 'دقيقة واحدة';
   return sec === 10 ? '10 ثوانٍ' : `${sec} ثانية`;
 }
 

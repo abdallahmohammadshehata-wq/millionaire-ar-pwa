@@ -29,7 +29,7 @@
     href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&display=swap"
     rel="stylesheet" />
 
-  <link rel="stylesheet" href="./styles.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=12" />
   <!-- MQTT over WSS for cross-network multiplayer rooms (works across Wi-Fi, 4G, 5G, and NATs) -->
   <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"
     onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
@@ -194,6 +194,7 @@
                 <button type="button" class="mini-pill-opt" data-sec="15">15 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="20">20 ث</button>
                 <button type="button" class="mini-pill-opt" data-sec="30">30 ث</button>
+                <button type="button" class="mini-pill-opt" data-sec="60">1 د</button>
               </div>
             </div>
             <div class="solo-time-row">
@@ -222,7 +223,7 @@
       <div class="rules-grid">
         <div class="rule-card">
           <span class="rule-ico">⏱️</span>
-          <strong>10 إلى 30 ثانية</strong>
+          <strong>10 ث إلى دقيقة</strong>
           <small>مهلة قابلة للتخصيص لكل سؤال</small>
         </div>
         <div class="rule-card rule-win">
@@ -309,11 +310,12 @@
 
           <div class="setting-group">
             <label class="field-label">⏱️ مهلة الإجابة لكل سؤال</label>
-            <div class="pill-selector" id="timeLimitSelector">
+            <div class="pill-selector pill-selector-5" id="timeLimitSelector">
               <button type="button" class="pill-opt active" data-sec="10">10 ثوانٍ</button>
               <button type="button" class="pill-opt" data-sec="15">15 ثانية</button>
               <button type="button" class="pill-opt" data-sec="20">20 ثانية</button>
               <button type="button" class="pill-opt" data-sec="30">30 ثانية</button>
+              <button type="button" class="pill-opt" data-sec="60">1 دقيقة</button>
             </div>
           </div>
 
@@ -564,7 +566,7 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js?v=11"></script>
+  <script type="module" src="./app.js?v=12"></script>
 </body>
 
 </html>

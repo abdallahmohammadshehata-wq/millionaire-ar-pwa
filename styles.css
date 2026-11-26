@@ -3295,3 +3295,13 @@ body[data-mood="win"] .beam-2 {
   color: #ffffff !important;
   border-color: #7f1d1d !important;
 }
+
+/* 5-column responsive time selector (10s / 15s / 20s / 30s / 1m) */
+.pill-selector-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+@media (max-width: 480px) {
+  .pill-selector-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
