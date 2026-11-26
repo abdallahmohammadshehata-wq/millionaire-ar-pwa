@@ -1,4 +1,4 @@
-const CACHE_NAME = 'millionaire-ar-pwa-v6';
+const CACHE_NAME = 'millionaire-ar-pwa-v7';
 const CORE_ASSETS = [
   './',
   './index.html',

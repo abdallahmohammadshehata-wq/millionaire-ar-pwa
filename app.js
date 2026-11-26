@@ -36,11 +36,13 @@ const CATEGORY_ICONS = {
   'معلومات عامة': '💡',
   'ذكاء IQ': '🧠'
 };
-const ALL_LEVELS = ['سهل', 'متوسط', 'صعب'];
+const ALL_LEVELS = ['سهل', 'متوسط', 'صعب', 'صعب جداً', 'أسطوري'];
 const LEVEL_META = {
   'سهل': { emoji: '🟢', cls: 'lvl-easy', label: 'سهل' },
   'متوسط': { emoji: '🟡', cls: 'lvl-med', label: 'متوسط' },
-  'صعب': { emoji: '🔴', cls: 'lvl-hard', label: 'صعب' }
+  'صعب': { emoji: '🔴', cls: 'lvl-hard', label: 'صعب' },
+  'صعب جداً': { emoji: '🟣', cls: 'lvl-vhard', label: 'صعب جداً' },
+  'أسطوري': { emoji: '🔥', cls: 'lvl-legend', label: 'أسطوري' }
 };
 
 function createDefaultCategoryConfig(levels = ALL_LEVELS) {
@@ -403,6 +405,26 @@ function generateDynamicIQQuestion(levels = ALL_LEVELS) {
     const opts = [String(x), String(x + 1), String(x - 1), String(x + 2)];
     return { category: 'ذكاء IQ', level: 'متوسط', q: `ما العدد الذي إذا ضربته في ${a} ثم أضفتَ إليه ${b} كان الناتج ${target}؟`, options: opts, answer: 0 };
   }
+  if (pickLevel === 'صعب جداً') {
+    // Alternating +a, *2 pattern
+    const s = Math.floor(2 + Math.random() * 5);
+    const add = Math.floor(3 + Math.random() * 4);
+    const a1 = s;
+    const a2 = a1 + add;
+    const a3 = a2 * 2;
+    const a4 = a3 + add;
+    const ans = a4 * 2;
+    const opts = [String(ans), String(ans + add), String(ans - 2), String(ans + 4)];
+    return { category: 'ذكاء IQ', level: 'صعب جداً', q: `أكمل النمط المتناوب: ${a1} ، ${a2} ، ${a3} ، ${a4} ، ... ؟`, options: opts, answer: 0 };
+  }
+  if (pickLevel === 'أسطوري') {
+    // Squares + offset: n^2 + n (or n^3 - n)
+    const offset = Math.floor(2 + Math.random() * 4);
+    const seq = [1, 2, 3, 4, 5].map((n) => n * n * n - n + offset);
+    const ans = 6 * 6 * 6 - 6 + offset;
+    const opts = [String(ans), String(ans - 6), String(ans + 6), String(ans + 12)];
+    return { category: 'ذكاء IQ', level: 'أسطوري', q: `لغز أسطوري — ما الرقم التالي في المتتالية: ${seq.join(' ، ')} ، ... ؟`, options: opts, answer: 0 };
+  }
   // صعب: increasing step or 2n+1 geometric progression
   if (Math.random() < 0.5) {
     const start = Math.floor(2 + Math.random() * 9);
@@ -460,7 +482,7 @@ class AIQuestionGenerator {
       `أنشئ ${count} أسئلة ثقافية جديدة ومبتكرة ومتنوعة باللغة العربية الفصحى السليمة والواضحة.`,
       `التصنيفات المطلوبة ومستوى صعوبة كل تصنيف على حدة (التزم بدقة بصعوبة كل تصنيف!):`,
       perCatLines,
-      `معايير الصعوبة: سهل = معلومات مشهورة ومباشرة | متوسط = تفاصيل وأرقام تحتاج ثقافة جيدة | صعب = معلومات دقيقة وتحديات للخبراء.`,
+      `معايير الصعوبة: سهل = معلومات مشهورة ومباشرة | متوسط = تفاصيل وأرقام تحتاج ثقافة جيدة | صعب = معلومات دقيقة للخبراء | صعب جداً = معلومات نادرة ومتخصصة للغاية بمشتتات ذكية متقاربة | أسطوري = بمستوى سؤال المليون الأخير (معلومات موسوعية نادرة جداً وتواريخ وأسماء وأرقام فائقة الدقة لا يعرفها إلا القليل النادر مع خيارات متقاربة جداً).`,
       ...footballHint,
       `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
@@ -1916,6 +1938,10 @@ function applyCategoryPreset(preset, targetCfg) {
     ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['متوسط'] }; });
   } else if (preset === 'all-hard') {
     ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['صعب'] }; });
+  } else if (preset === 'all-vhard') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['صعب جداً'] }; });
+  } else if (preset === 'all-legend') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['أسطوري'] }; });
   } else if (preset === 'football') {
     ALL_CATEGORIES.forEach((c) => {
       const isFb = c === 'كرة قدم محلي' || c === 'كرة قدم دولي';

@@ -1015,6 +1015,19 @@ body[data-mood="win"] .beam-2 {
 .level-pill.lvl-easy { border-color: #34d399; color: #6ee7b7; background: rgba(6, 78, 59, 0.45); }
 .level-pill.lvl-med { border-color: #fbbf24; color: #fde68a; background: rgba(120, 53, 15, 0.45); }
 .level-pill.lvl-hard { border-color: #f87171; color: #fecaca; background: rgba(127, 29, 29, 0.5); }
+.level-pill.lvl-vhard { border-color: #c084fc; color: #f3e8ff; background: rgba(88, 28, 135, 0.58); box-shadow: 0 0 12px rgba(168, 85, 247, 0.35); }
+.level-pill.lvl-legend {
+  border-color: #fde047;
+  color: #fffbeb;
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.78), rgba(180, 83, 9, 0.82));
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.55);
+}
+
+.preset-chip.preset-legend {
+  border-color: rgba(251, 191, 36, 0.65);
+  color: #fde68a;
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.45), rgba(146, 64, 14, 0.45));
+}
 
 /* Per-Category Hardness Matrix */
 .quick-presets-row {
@@ -1128,15 +1141,28 @@ body[data-mood="win"] .beam-2 {
   color: #fecaca;
   border-color: #f87171;
 }
+.row-lvl-btn.lvl-vhard.active {
+  background: rgba(168, 85, 247, 0.28);
+  color: #f3e8ff;
+  border-color: #c084fc;
+  box-shadow: 0 0 9px rgba(168, 85, 247, 0.3);
+}
+.row-lvl-btn.lvl-legend.active {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.52), rgba(217, 119, 6, 0.56));
+  color: #fffbeb;
+  border-color: #fde047;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45);
+}
 .row-lvl-btn:disabled, .cat-toggle-btn:disabled { cursor: default; }
 .solo-matrix-drawer {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(246, 192, 56, 0.2);
 }
-@media (max-width: 440px) {
+@media (max-width: 560px) {
   .cat-matrix-row { flex-wrap: wrap; gap: 6px; }
-  .cat-row-levels { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .cat-row-levels { width: 100%; display: flex; flex-wrap: wrap; gap: 4px; }
+  .row-lvl-btn { flex: 1 1 auto; text-align: center; padding: 4px 6px; font-size: 0.7rem; }
 }
 .cat-chip {
   padding: 6px 12px;
