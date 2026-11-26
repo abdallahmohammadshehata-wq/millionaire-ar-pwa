@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" id="metaThemeColor" content="#060b24" />
   <script>
-    (function(){
+    (function () {
       var t = localStorage.getItem('mm_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
       document.documentElement.dataset.theme = t;
     })();
@@ -29,7 +29,7 @@
     href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800;900&family=Tajawal:wght@500;700;800&display=swap"
     rel="stylesheet" />
 
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
   <!-- MQTT over WSS for cross-network multiplayer rooms (works across Wi-Fi, 4G, 5G, and NATs) -->
   <script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"
     onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js';document.head.appendChild(s);"></script>
@@ -78,7 +78,8 @@
       <button id="btnInstallPwa" class="icon-pill hidden" title="تثبيت التطبيق على جهازك">
         <span>📲</span> <span class="hide-xs">تثبيت التطبيق</span>
       </button>
-      <button id="btnThemeToggle" class="icon-btn" title="تبديل الوضع الليلي / النهاري" aria-label="تبديل المظهر">☀️</button>
+      <button id="btnThemeToggle" class="icon-btn" title="تبديل الوضع الليلي / النهاري"
+        aria-label="تبديل المظهر">☀️</button>
       <button id="btnSoundToggle" class="icon-btn" title="تشغيل / كتم الصوت" aria-label="الصوت">🔊</button>
       <button id="btnSettings" class="icon-btn" title="الإعدادات ومفتاح التوليد الذكي"
         aria-label="الإعدادات">⚙️</button>
@@ -563,7 +564,7 @@
     </div>
   </div>
 
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </body>
 
 </html>

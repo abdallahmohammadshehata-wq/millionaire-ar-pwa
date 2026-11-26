@@ -3135,3 +3135,67 @@ body[data-mood="win"] .beam-2 {
   border-color: #b45309 !important;
   box-shadow: 0 4px 14px rgba(185, 28, 28, 0.34);
 }
+
+/* ==================== VISIBLE 5-STEP SPECTRUM ON ALL BUTTONS (RESTING + ACTIVE) ==================== */
+/* Resting (unselected) state: subtle tinted outline so the full 5-step gradient is ALWAYS visible */
+.row-lvl-btn.lvl-easy { border-color: rgba(52, 211, 153, 0.35); color: rgba(110, 231, 183, 0.72); background: rgba(16, 185, 129, 0.08); }
+.row-lvl-btn.lvl-med { border-color: rgba(250, 204, 21, 0.35); color: rgba(253, 230, 138, 0.72); background: rgba(245, 158, 11, 0.08); }
+.row-lvl-btn.lvl-hard { border-color: rgba(251, 146, 60, 0.38); color: rgba(254, 215, 170, 0.74); background: rgba(249, 115, 22, 0.09); }
+.row-lvl-btn.lvl-vhard { border-color: rgba(248, 113, 113, 0.42); color: rgba(254, 202, 202, 0.76); background: rgba(239, 68, 68, 0.1); }
+.row-lvl-btn.lvl-legend {
+  border-color: rgba(253, 224, 71, 0.48);
+  color: rgba(254, 240, 138, 0.82);
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.2), rgba(126, 34, 206, 0.2), rgba(217, 119, 6, 0.2));
+}
+
+/* Active (selected) state: bold vivid filled spectrum */
+.row-lvl-btn.lvl-easy.active {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: #ffffff !important;
+  border-color: #6ee7b7 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.42);
+}
+.row-lvl-btn.lvl-med.active {
+  background: linear-gradient(135deg, #eab308, #d97706) !important;
+  color: #090d24 !important;
+  border-color: #fef08a !important;
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.42);
+}
+.row-lvl-btn.lvl-hard.active {
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
+  color: #ffffff !important;
+  border-color: #fdba74 !important;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.45);
+}
+.row-lvl-btn.lvl-vhard.active {
+  background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+  color: #ffffff !important;
+  border-color: #fca5a5 !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+}
+.row-lvl-btn.lvl-legend.active {
+  background: linear-gradient(135deg, #991b1b 0%, #7e22ce 52%, #d97706 100%) !important;
+  color: #ffffff !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.58), 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+/* Light Mode resting & active spectrum */
+:root[data-theme="light"] .row-lvl-btn.lvl-easy { background: rgba(16, 185, 129, 0.08); color: #059669; border-color: rgba(16, 185, 129, 0.36); }
+:root[data-theme="light"] .row-lvl-btn.lvl-med { background: rgba(234, 179, 8, 0.1); color: #a16207; border-color: rgba(234, 179, 8, 0.42); }
+:root[data-theme="light"] .row-lvl-btn.lvl-hard { background: rgba(249, 115, 22, 0.1); color: #c2410c; border-color: rgba(249, 115, 22, 0.42); }
+:root[data-theme="light"] .row-lvl-btn.lvl-vhard { background: rgba(239, 68, 68, 0.1); color: #b91c1c; border-color: rgba(239, 68, 68, 0.42); }
+:root[data-theme="light"] .row-lvl-btn.lvl-legend {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.12), rgba(126, 34, 206, 0.12), rgba(217, 119, 6, 0.14));
+  color: #7e22ce;
+  border-color: rgba(180, 83, 9, 0.45);
+}
+:root[data-theme="light"] .row-lvl-btn.lvl-easy.active { background: linear-gradient(135deg, #10b981, #059669) !important; color: #ffffff !important; border-color: #047857 !important; }
+:root[data-theme="light"] .row-lvl-btn.lvl-med.active { background: linear-gradient(135deg, #facc15, #eab308) !important; color: #422006 !important; border-color: #ca8a04 !important; }
+:root[data-theme="light"] .row-lvl-btn.lvl-hard.active { background: linear-gradient(135deg, #f97316, #ea580c) !important; color: #ffffff !important; border-color: #c2410c !important; }
+:root[data-theme="light"] .row-lvl-btn.lvl-vhard.active { background: linear-gradient(135deg, #ef4444, #dc2626) !important; color: #ffffff !important; border-color: #b91c1c !important; }
+:root[data-theme="light"] .row-lvl-btn.lvl-legend.active {
+  background: linear-gradient(135deg, #b91c1c 0%, #7e22ce 52%, #d97706 100%) !important;
+  color: #ffffff !important;
+  border-color: #92400e !important;
+}
