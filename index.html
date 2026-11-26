@@ -178,12 +178,18 @@
               </div>
             </div>
             <div class="solo-time-row">
-              <span class="solo-time-label">🎚️ الصعوبة:</span>
-              <div class="mini-pill-selector" id="soloDifficultySelector">
-                <button type="button" class="mini-pill-opt lvl-easy active" data-level="سهل">🟢 سهل</button>
-                <button type="button" class="mini-pill-opt lvl-med active" data-level="متوسط">🟡 متوسط</button>
-                <button type="button" class="mini-pill-opt lvl-hard active" data-level="صعب">🔴 صعب</button>
+              <span class="solo-time-label">🎚️ صعوبة كل تصنيف:</span>
+              <button type="button" id="btnToggleSoloMatrix" class="mini-pill-opt active">⚙️ تخصيص التصنيفات والصعوبة</button>
+            </div>
+            <div id="soloMatrixDrawer" class="solo-matrix-drawer hidden">
+              <div class="quick-presets-row" id="soloPresetsRow">
+                <button type="button" class="preset-chip" data-preset="all-mixed">✨ الكل متنوع</button>
+                <button type="button" class="preset-chip" data-preset="all-easy">🟢 الكل سهل</button>
+                <button type="button" class="preset-chip" data-preset="all-med">🟡 الكل متوسط</button>
+                <button type="button" class="preset-chip" data-preset="all-hard">🔴 الكل صعب</button>
+                <button type="button" class="preset-chip" data-preset="football">⚽ كرة قدم فقط</button>
               </div>
+              <div id="soloCategoryMatrix" class="cat-matrix"></div>
             </div>
           </div>
         </div>
@@ -291,30 +297,16 @@
 
           <div class="setting-group">
             <div class="label-row">
-              <label class="field-label">🎚️ مستوى الصعوبة (يمكنك اختيار أكثر من مستوى)</label>
+              <label class="field-label">🎯 التصنيفات وصعوبة كل تصنيف على حدة</label>
             </div>
-            <div class="level-chips" id="difficultySelector">
-              <button type="button" class="lvl-chip lvl-easy active" data-level="سهل">🟢 سهل</button>
-              <button type="button" class="lvl-chip lvl-med active" data-level="متوسط">🟡 متوسط</button>
-              <button type="button" class="lvl-chip lvl-hard active" data-level="صعب">🔴 صعب</button>
+            <div class="quick-presets-row" id="lobbyPresetsRow">
+              <button type="button" class="preset-chip" data-preset="all-mixed">✨ الكل متنوع</button>
+              <button type="button" class="preset-chip" data-preset="all-easy">🟢 الكل سهل</button>
+              <button type="button" class="preset-chip" data-preset="all-med">🟡 الكل متوسط</button>
+              <button type="button" class="preset-chip" data-preset="all-hard">🔴 الكل صعب</button>
+              <button type="button" class="preset-chip" data-preset="football">⚽ كرة قدم فقط</button>
             </div>
-          </div>
-
-          <div class="setting-group">
-            <div class="label-row">
-              <label class="field-label">تصنيفات الأسئلة المتجددة</label>
-              <button type="button" id="btnToggleAllCats" class="tiny-link-btn">تحديد الكل</button>
-            </div>
-            <div class="category-chips" id="categorySelector">
-              <button type="button" class="cat-chip active" data-cat="تاريخ">🏛️ تاريخ</button>
-              <button type="button" class="cat-chip active" data-cat="جغرافيا">🌍 جغرافيا</button>
-              <button type="button" class="cat-chip active" data-cat="إسلامي">🕌 إسلامي</button>
-              <button type="button" class="cat-chip active" data-cat="كرة قدم محلي">🏟️ كرة قدم محلي</button>
-              <button type="button" class="cat-chip active" data-cat="كرة قدم دولي">🌍 كرة قدم دولي</button>
-              <button type="button" class="cat-chip active" data-cat="رياضة">🏅 رياضة</button>
-              <button type="button" class="cat-chip active" data-cat="معلومات عامة">💡 عامة وعلوم</button>
-              <button type="button" class="cat-chip active" data-cat="ذكاء IQ">🧠 ذكاء IQ</button>
-            </div>
+            <div id="lobbyCategoryMatrix" class="cat-matrix"></div>
           </div>
 
           <div id="hostControlsArea" class="host-start-area">

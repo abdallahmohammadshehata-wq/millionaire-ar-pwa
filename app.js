@@ -26,6 +26,16 @@ const SOLO_PRIZE_VALUES = [100, 200, 300, 500, 1000, 2000, 4000, 8000, 16000, 32
 const SAFE_INDICES = new Set([4, 9, 14]);
 
 const ALL_CATEGORIES = ['تاريخ', 'جغرافيا', 'إسلامي', 'كرة قدم محلي', 'كرة قدم دولي', 'رياضة', 'معلومات عامة', 'ذكاء IQ'];
+const CATEGORY_ICONS = {
+  'تاريخ': '🏛️',
+  'جغرافيا': '🌍',
+  'إسلامي': '🕌',
+  'كرة قدم محلي': '🏟️',
+  'كرة قدم دولي': '⚽',
+  'رياضة': '🏅',
+  'معلومات عامة': '💡',
+  'ذكاء IQ': '🧠'
+};
 const ALL_LEVELS = ['سهل', 'متوسط', 'صعب'];
 const LEVEL_META = {
   'سهل': { emoji: '🟢', cls: 'lvl-easy', label: 'سهل' },
@@ -33,18 +43,57 @@ const LEVEL_META = {
   'صعب': { emoji: '🔴', cls: 'lvl-hard', label: 'صعب' }
 };
 
-function loadSavedLevels() {
-  try {
-    const arr = JSON.parse(localStorage.getItem('mm_levels_v1') || 'null');
-    if (Array.isArray(arr)) {
-      const clean = arr.filter((l) => ALL_LEVELS.includes(l));
-      if (clean.length) return clean;
-    }
-  } catch {}
-  return [...ALL_LEVELS];
+function createDefaultCategoryConfig(levels = ALL_LEVELS) {
+  const cfg = {};
+  ALL_CATEGORIES.forEach((cat) => {
+    cfg[cat] = { enabled: true, levels: [...levels] };
+  });
+  return cfg;
 }
 
-const DEFAULT_LEVELS = loadSavedLevels();
+function normalizeCategoryConfig(raw) {
+  const cfg = createDefaultCategoryConfig();
+  if (raw && typeof raw === 'object') {
+    ALL_CATEGORIES.forEach((cat) => {
+      const entry = raw[cat];
+      if (entry && typeof entry === 'object') {
+        const lvls = Array.isArray(entry.levels)
+          ? entry.levels.filter((l) => ALL_LEVELS.includes(l))
+          : [...ALL_LEVELS];
+        cfg[cat] = {
+          enabled: Boolean(entry.enabled),
+          levels: lvls.length ? lvls : [...ALL_LEVELS]
+        };
+      }
+    });
+  }
+  // Ensure at least 1 category is enabled
+  if (!ALL_CATEGORIES.some((cat) => cfg[cat].enabled)) {
+    cfg[ALL_CATEGORIES[0]].enabled = true;
+  }
+  return cfg;
+}
+
+function loadSavedCategoryConfig() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('mm_cat_config_v1') || 'null');
+    if (parsed && typeof parsed === 'object') return normalizeCategoryConfig(parsed);
+  } catch {}
+  return createDefaultCategoryConfig();
+}
+
+function saveCategoryConfig(cfg) {
+  localStorage.setItem('mm_cat_config_v1', JSON.stringify(normalizeCategoryConfig(cfg)));
+}
+
+function getEnabledEntries(cfg) {
+  const norm = normalizeCategoryConfig(cfg);
+  return ALL_CATEGORIES
+    .filter((cat) => norm[cat].enabled)
+    .map((cat) => ({ category: cat, levels: norm[cat].levels }));
+}
+
+const DEFAULT_CATEGORY_CONFIG = loadSavedCategoryConfig();
 
 const SUBTOPIC_SEEDS = [
   'حضارات قديمة وعواصم منسية وألغاز رقمية ذكية',
@@ -385,15 +434,18 @@ class AIQuestionGenerator {
     updateLobbyReadyIndicator();
   }
 
-  async fetchBatchFromGemini(categories = ALL_CATEGORIES, count = 8, levels = ALL_LEVELS) {
+  async fetchBatchFromGemini(categoryConfig, count = 8) {
     const key = getApiKey();
     if (!key) throw new Error('Missing API key');
 
-    const cats = categories.length ? categories : ALL_CATEGORIES;
-    const lvls = levels.length ? levels : ALL_LEVELS;
+    const normCfg = normalizeCategoryConfig(categoryConfig);
+    const entries = getEnabledEntries(normCfg);
+    const cats = entries.map((e) => e.category);
     const recentSeen = getSeenQuestions().slice(-30);
     const seedTheme = SUBTOPIC_SEEDS[Math.floor(Math.random() * SUBTOPIC_SEEDS.length)];
     const randomSalt = Math.floor(100000 + Math.random() * 900000);
+
+    const perCatLines = entries.map((e) => `- ${e.category}: مستوى الصعوبة المطلوب (${e.levels.join(' أو ')})`).join('\n');
 
     const footballHint = [];
     if (cats.includes('كرة قدم محلي')) {
@@ -406,15 +458,15 @@ class AIQuestionGenerator {
     const prompt = [
       `أنت معدّ أسئلة محترف لبرنامج المسابقات الشهير «من سيربح المليون».`,
       `أنشئ ${count} أسئلة ثقافية جديدة ومبتكرة ومتنوعة باللغة العربية الفصحى السليمة والواضحة.`,
-      `وزّع الأسئلة بالتساوي قدر الإمكان على التصنيفات التالية فقط: (${cats.join('، ')}).`,
-      `مستويات الصعوبة المطلوبة فقط: (${lvls.join('، ')}).`,
-      `- سهل: معلومات مشهورة ومباشرة. | متوسط: تفاصيل وأرقام تحتاج ثقافة جيدة. | صعب: معلومات دقيقة وتحديات للخبراء.`,
+      `التصنيفات المطلوبة ومستوى صعوبة كل تصنيف على حدة (التزم بدقة بصعوبة كل تصنيف!):`,
+      perCatLines,
+      `معايير الصعوبة: سهل = معلومات مشهورة ومباشرة | متوسط = تفاصيل وأرقام تحتاج ثقافة جيدة | صعب = معلومات دقيقة وتحديات للخبراء.`,
       ...footballHint,
       `موجه التنوع العشوائي لهذه الدفعة (#${randomSalt}): ركّز على زوايا مشوقة تشمل ${seedTheme}.`,
       `شروط صارمة جداً:`,
       `1. اجعل نص السؤال واضحاً ومختصراً ومباشراً (أقل من 18 كلمة)، وبما فيها أسئلة ذكاء IQ اجعلها ألغازاً سريعة البديهة ومتتاليات قصيرة تُحل ذهنياً بسرعة.`,
       `2. كل سؤال له 4 خيارات مختلفة تماماً (بدون ترقيم أ/ب/ج/د داخل النص)، وإجابة صحيحة واحدة مؤكدة علمياً وتاريخياً بنسبة 100%.`,
-      `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3)، والحقل level يجب أن يكون أحد القيم المطلوبة بالضبط (${lvls.join(' / ')}).`,
+      `3. الحقل answer هو رقم الفهرس الصحيح (0 أو 1 أو 2 أو 3)، والحقل level يجب أن يطابق مستوى الصعوبة المحدد لذلك التصنيف بالضبط.`,
       recentSeen.length ? `4. لا تكرر نهائياً أياً من هذه الأسئلة السابقة:\n- ${recentSeen.join('\n- ')}` : ''
     ].filter(Boolean).join('\n');
 
@@ -449,7 +501,7 @@ class AIQuestionGenerator {
         if (!model.startsWith('gemma-')) {
           bodyObj.response_format = { type: 'text', mime_type: 'application/json', schema };
         } else {
-          bodyObj.input += `\nأجب بصيغة JSON فقط بهذا الشكل: {"questions":[{"category":"...","level":"${lvls[0]}","q":"...","options":["1","2","3","4"],"answer":0}]}`;
+          bodyObj.input += `\nأجب بصيغة JSON فقط بهذا الشكل: {"questions":[{"category":"${entries[0].category}","level":"${entries[0].levels[0]}","q":"...","options":["1","2","3","4"],"answer":0}]}`;
         }
 
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1/interactions?key=${encodeURIComponent(key)}`, {
@@ -486,7 +538,11 @@ class AIQuestionGenerator {
         const seenSet = new Set(getSeenQuestions());
         const valid = [];
         for (const item of list) {
-          if (!lvls.includes(item.level)) item.level = lvls[Math.floor(Math.random() * lvls.length)];
+          const catEntry = normCfg[item.category];
+          const allowedForCat = catEntry && catEntry.enabled ? catEntry.levels : entries[0].levels;
+          if (!allowedForCat.includes(item.level)) {
+            item.level = allowedForCat[Math.floor(Math.random() * allowedForCat.length)];
+          }
           const normQ = normalizeAndShuffleQuestion(item, 'ai');
           if (normQ && !seenSet.has(normQ.q.slice(0, 90))) {
             valid.push(normQ);
@@ -504,26 +560,34 @@ class AIQuestionGenerator {
     throw lastErr || new Error('All AI models busy');
   }
 
-  pullFallbackQuestion(categories = ALL_CATEGORIES, levels = ALL_LEVELS) {
-    const cats = new Set(categories.length ? categories : ALL_CATEGORIES);
-    const lvls = new Set(levels.length ? levels : ALL_LEVELS);
-    if (cats.has('ذكاء IQ') && Math.random() < 0.25) {
-      const iqDynamic = generateDynamicIQQuestion([...lvls]);
+  pullFallbackQuestion(categoryConfig) {
+    const normCfg = normalizeCategoryConfig(categoryConfig);
+    const entries = getEnabledEntries(normCfg);
+    const iqEntry = normCfg['ذكاء IQ'];
+
+    if (iqEntry && iqEntry.enabled && Math.random() < (entries.length === 1 ? 0.5 : 0.2)) {
+      const iqDynamic = generateDynamicIQQuestion(iqEntry.levels);
       if (iqDynamic) return normalizeAndShuffleQuestion(iqDynamic, 'ai');
     }
+
     const seen = new Set(getSeenQuestions());
-    // 1. Strict: matching category + matching level + unseen
-    let pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && lvls.has(q.level || 'متوسط') && !seen.has(q.q.slice(0, 90)));
-    // 2. Matching category + matching level (allow repeat if exhausted)
-    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category) && lvls.has(q.level || 'متوسط'));
-    // 3. Matching category any level
-    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => cats.has(q.category));
+    const matchesPerCategoryLevel = (q) => {
+      const entry = normCfg[q.category];
+      return Boolean(entry && entry.enabled && entry.levels.includes(q.level || 'متوسط'));
+    };
+
+    // 1. Strict: enabled category + that category's exact allowed hardness + unseen
+    let pool = FALLBACK_QUESTIONS.filter((q) => matchesPerCategoryLevel(q) && !seen.has(q.q.slice(0, 90)));
+    // 2. Enabled category + that category's exact allowed hardness (allow repeat if exhausted)
+    if (!pool.length) pool = FALLBACK_QUESTIONS.filter(matchesPerCategoryLevel);
+    // 3. Enabled category any level
+    if (!pool.length) pool = FALLBACK_QUESTIONS.filter((q) => normCfg[q.category]?.enabled);
     if (!pool.length) pool = FALLBACK_QUESTIONS;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     return normalizeAndShuffleQuestion(pick, 'bank');
   }
 
-  async ensureReady(categories = ALL_CATEGORIES, minInitial = 5, levels = ALL_LEVELS) {
+  async ensureReady(categoryConfig, minInitial = 5) {
     if (!getApiKey()) {
       updateLobbyReadyIndicator();
       return;
@@ -536,7 +600,7 @@ class AIQuestionGenerator {
     this.isFetching = true;
     updateLobbyReadyIndicator();
     try {
-      const fresh = await this.fetchBatchFromGemini(categories, 8, levels);
+      const fresh = await this.fetchBatchFromGemini(categoryConfig, 8);
       this.queue.push(...fresh);
     } catch (e) {
       console.warn('AI batch fallback triggered:', e.message);
@@ -546,13 +610,13 @@ class AIQuestionGenerator {
     }
   }
 
-  async nextQuestion(categories = ALL_CATEGORIES, levels = ALL_LEVELS) {
+  async nextQuestion(categoryConfig) {
     if (this.queue.length === 0 && getApiKey()) {
-      await this.ensureReady(categories, 1, levels);
+      await this.ensureReady(categoryConfig, 1);
     }
     if (getApiKey() && this.queue.length <= 4 && !this.isFetching) {
       this.isFetching = true;
-      this.fetchBatchFromGemini(categories, 8, levels)
+      this.fetchBatchFromGemini(categoryConfig, 8)
         .then((fresh) => {
           this.queue.push(...fresh);
           updateLobbyReadyIndicator();
@@ -561,7 +625,7 @@ class AIQuestionGenerator {
         .finally(() => { this.isFetching = false; });
     }
 
-    const q = this.queue.shift() || this.pullFallbackQuestion(categories, levels);
+    const q = this.queue.shift() || this.pullFallbackQuestion(categoryConfig);
     markQuestionSeen(q.q);
     updateSeenCountUI();
     return q;
@@ -775,12 +839,11 @@ const gameState = {
   settings: {
     totalRounds: 15,
     questionSeconds: DEFAULT_QUESTION_SECONDS,
-    categories: [...ALL_CATEGORIES],
-    levels: [...DEFAULT_LEVELS]
+    categoryConfig: normalizeCategoryConfig(DEFAULT_CATEGORY_CONFIG)
   },
 
   soloSeconds: DEFAULT_QUESTION_SECONDS,
-  soloLevels: [...DEFAULT_LEVELS],
+  soloCategoryConfig: normalizeCategoryConfig(DEFAULT_CATEGORY_CONFIG),
 
   players: {},
   roundWrongIds: new Set(),
@@ -962,7 +1025,7 @@ async function createMultiplayerRoom() {
   sfx.playIntro();
 
   aiEngine.clearQueue();
-  aiEngine.ensureReady(gameState.settings.categories, 6, gameState.settings.levels);
+  aiEngine.ensureReady(gameState.settings.categoryConfig, 6);
   startRoomHeartbeat();
 }
 
@@ -1177,12 +1240,7 @@ function getActivePlayerIds() {
 
 async function hostStartMatch() {
   if (!gameState.isHost) return;
-  if (gameState.settings.categories.length === 0) {
-    gameState.settings.categories = [...ALL_CATEGORIES];
-  }
-  if (!gameState.settings.levels || gameState.settings.levels.length === 0) {
-    gameState.settings.levels = [...ALL_LEVELS];
-  }
+  gameState.settings.categoryConfig = normalizeCategoryConfig(gameState.settings.categoryConfig);
 
   Object.values(gameState.players).forEach((p) => { p.score = 0; });
   publishHostRoomState('playing');
@@ -1194,7 +1252,7 @@ async function hostStartMatch() {
   });
 
   await Promise.all([
-    aiEngine.ensureReady(gameState.settings.categories, 3, gameState.settings.levels),
+    aiEngine.ensureReady(gameState.settings.categoryConfig, 3),
     new Promise((r) => setTimeout(r, 2250))
   ]);
   hostLaunchQuestion(1);
@@ -1223,7 +1281,7 @@ async function hostLaunchQuestion(roundNum) {
   const durSec = getRoomDurationSec();
   const durMs = durSec * 1000;
 
-  const qObj = await aiEngine.nextQuestion(gameState.settings.categories, gameState.settings.levels);
+  const qObj = await aiEngine.nextQuestion(gameState.settings.categoryConfig);
   const activeRound = {
     roundNum,
     qId: qObj.qId,
@@ -1623,7 +1681,7 @@ async function startSoloMillionaire() {
   resetOptionButtons(true);
 
   await Promise.all([
-    aiEngine.ensureReady(ALL_CATEGORIES, 4, gameState.soloLevels),
+    aiEngine.ensureReady(gameState.soloCategoryConfig, 4),
     runCountdownOverlay('رحلة المليون تبدأ الآن!')
   ]);
   nextSoloQuestion();
@@ -1641,7 +1699,7 @@ async function nextSoloQuestion() {
   $('soloHelperBox').classList.add('hidden');
   renderSoloLadder();
 
-  const qObj = await aiEngine.nextQuestion(ALL_CATEGORIES, gameState.soloLevels);
+  const qObj = await aiEngine.nextQuestion(gameState.soloCategoryConfig);
   gameState.currentRound = qObj;
   gameState.myAnsweredRoundId = null;
 
@@ -1848,9 +1906,102 @@ function syncSoloTimeUI() {
   });
 }
 
-function syncSoloDifficultyUI() {
-  document.querySelectorAll('#soloDifficultySelector .mini-pill-opt').forEach((btn) => {
-    btn.classList.toggle('active', gameState.soloLevels.includes(btn.dataset.level));
+function applyCategoryPreset(preset, targetCfg) {
+  const cfg = normalizeCategoryConfig(targetCfg);
+  if (preset === 'all-mixed') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: [...ALL_LEVELS] }; });
+  } else if (preset === 'all-easy') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['سهل'] }; });
+  } else if (preset === 'all-med') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['متوسط'] }; });
+  } else if (preset === 'all-hard') {
+    ALL_CATEGORIES.forEach((c) => { cfg[c] = { enabled: true, levels: ['صعب'] }; });
+  } else if (preset === 'football') {
+    ALL_CATEGORIES.forEach((c) => {
+      const isFb = c === 'كرة قدم محلي' || c === 'كرة قدم دولي';
+      cfg[c] = { enabled: isFb, levels: cfg[c].levels.length ? [...cfg[c].levels] : [...ALL_LEVELS] };
+    });
+  }
+  return cfg;
+}
+
+function renderCategoryMatrix(containerId, config, editable, onUpdate) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  const cfg = normalizeCategoryConfig(config);
+  wrap.innerHTML = '';
+
+  ALL_CATEGORIES.forEach((cat) => {
+    const entry = cfg[cat];
+    const row = document.createElement('div');
+    row.className = 'cat-matrix-row' + (entry.enabled ? '' : ' disabled-cat');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'cat-toggle-btn';
+    toggleBtn.disabled = !editable;
+    toggleBtn.innerHTML = `<span class="cat-check-dot">${entry.enabled ? '✓' : ''}</span><span>${CATEGORY_ICONS[cat] || '✨'} ${escapeHtml(cat)}</span>`;
+    toggleBtn.addEventListener('click', () => {
+      if (!editable) return;
+      haptic('tap');
+      const enabledCount = ALL_CATEGORIES.filter((c) => cfg[c].enabled).length;
+      if (entry.enabled && enabledCount <= 1) {
+        showToast('⚠️ يجب الإبقاء على تصنيف واحد مفعّل على الأقل');
+        return;
+      }
+      cfg[cat] = { enabled: !entry.enabled, levels: [...entry.levels] };
+      onUpdate(cfg);
+    });
+
+    const levelsWrap = document.createElement('div');
+    levelsWrap.className = 'cat-row-levels';
+    ALL_LEVELS.forEach((lvl) => {
+      const meta = LEVEL_META[lvl];
+      const isActive = entry.enabled && entry.levels.includes(lvl);
+      const lBtn = document.createElement('button');
+      lBtn.type = 'button';
+      lBtn.className = `row-lvl-btn ${meta.cls}` + (isActive ? ' active' : '');
+      lBtn.disabled = !editable;
+      lBtn.textContent = meta.label;
+      lBtn.addEventListener('click', () => {
+        if (!editable) return;
+        haptic('tap');
+        if (!entry.enabled) {
+          // Clicking any difficulty on a disabled category re-enables it with that difficulty!
+          cfg[cat] = { enabled: true, levels: [lvl] };
+        } else if (entry.levels.includes(lvl)) {
+          if (entry.levels.length > 1) {
+            cfg[cat] = { enabled: true, levels: entry.levels.filter((x) => x !== lvl) };
+          } else {
+            showToast(`⚠️ يجب اختيار مستوى واحد على الأقل لتصنيف «${cat}»`);
+            return;
+          }
+        } else {
+          cfg[cat] = { enabled: true, levels: [...entry.levels, lvl] };
+        }
+        onUpdate(cfg);
+      });
+      levelsWrap.appendChild(lBtn);
+    });
+
+    row.appendChild(toggleBtn);
+    row.appendChild(levelsWrap);
+    wrap.appendChild(row);
+  });
+}
+
+function syncSoloMatrixUI() {
+  const cfg = normalizeCategoryConfig(gameState.soloCategoryConfig);
+  const count = getEnabledEntries(cfg).length;
+  const btn = $('btnToggleSoloMatrix');
+  if (btn) btn.textContent = `⚙️ تخصيص الصعوبة (${count}/${ALL_CATEGORIES.length} تصنيفات)`;
+
+  renderCategoryMatrix('soloCategoryMatrix', cfg, true, (updated) => {
+    gameState.soloCategoryConfig = normalizeCategoryConfig(updated);
+    gameState.settings.categoryConfig = normalizeCategoryConfig(updated);
+    saveCategoryConfig(updated);
+    aiEngine.clearQueue();
+    syncSoloMatrixUI();
   });
 }
 
@@ -1888,20 +2039,21 @@ function updateLobbyUI() {
     btn.classList.toggle('active', Number(btn.dataset.sec) === getRoomDurationSec());
     btn.disabled = !gameState.isHost;
   });
-  const activeLevels = gameState.settings.levels && gameState.settings.levels.length ? gameState.settings.levels : ALL_LEVELS;
-  document.querySelectorAll('#difficultySelector .lvl-chip').forEach((btn) => {
-    btn.classList.toggle('active', activeLevels.includes(btn.dataset.level));
-    btn.disabled = !gameState.isHost;
+
+  const presetsRow = $('lobbyPresetsRow');
+  if (presetsRow) presetsRow.classList.toggle('hidden', !gameState.isHost);
+
+  renderCategoryMatrix('lobbyCategoryMatrix', gameState.settings.categoryConfig, gameState.isHost, (updated) => {
+    gameState.settings.categoryConfig = normalizeCategoryConfig(updated);
+    gameState.soloCategoryConfig = normalizeCategoryConfig(updated);
+    saveCategoryConfig(updated);
+    aiEngine.clearQueue();
+    syncSoloMatrixUI();
+    updateLobbyUI();
+    publishHostRoomState('lobby');
+    aiEngine.ensureReady(gameState.settings.categoryConfig, 5);
   });
-  document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
-    btn.classList.toggle('active', gameState.settings.categories.includes(btn.dataset.cat));
-    btn.disabled = !gameState.isHost;
-  });
-  const allBtn = $('btnToggleAllCats');
-  if (allBtn) {
-    allBtn.classList.toggle('hidden', !gameState.isHost);
-    allBtn.textContent = gameState.settings.categories.length === ALL_CATEGORIES.length ? '⚽ كرة قدم فقط' : 'تحديد الكل';
-  }
+
   updateLobbyReadyIndicator();
 }
 
@@ -2041,7 +2193,7 @@ function initApp() {
   renderAvatarStrip();
   renderHomeStats();
   syncSoloTimeUI();
-  syncSoloDifficultyUI();
+  syncSoloMatrixUI();
   updateSeenCountUI();
 
   $('btnSoundToggle').addEventListener('click', () => {
@@ -2089,23 +2241,21 @@ function initApp() {
     });
   });
 
-  // Solo multi-select difficulty levels (سهل / متوسط / صعب)
-  document.querySelectorAll('#soloDifficultySelector .mini-pill-opt').forEach((btn) => {
+  // Solo per-category hardness drawer toggle & presets
+  $('btnToggleSoloMatrix').addEventListener('click', () => {
+    haptic('tap');
+    $('soloMatrixDrawer').classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('#soloPresetsRow .preset-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       haptic('tap');
-      const lvl = btn.dataset.level;
-      if (!ALL_LEVELS.includes(lvl)) return;
-      const cur = gameState.soloLevels;
-      if (cur.includes(lvl)) {
-        if (cur.length > 1) gameState.soloLevels = cur.filter((l) => l !== lvl);
-        else { showToast('⚠️ يجب اختيار مستوى صعوبة واحد على الأقل'); return; }
-      } else {
-        gameState.soloLevels = [...cur, lvl];
-      }
-      gameState.settings.levels = [...gameState.soloLevels];
-      localStorage.setItem('mm_levels_v1', JSON.stringify(gameState.soloLevels));
+      const updated = applyCategoryPreset(btn.dataset.preset, gameState.soloCategoryConfig);
+      gameState.soloCategoryConfig = updated;
+      gameState.settings.categoryConfig = normalizeCategoryConfig(updated);
+      saveCategoryConfig(updated);
       aiEngine.clearQueue();
-      syncSoloDifficultyUI();
+      syncSoloMatrixUI();
     });
   });
 
@@ -2207,58 +2357,19 @@ function initApp() {
     });
   });
 
-  document.querySelectorAll('#difficultySelector .lvl-chip').forEach((btn) => {
+  document.querySelectorAll('#lobbyPresetsRow .preset-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!gameState.isHost) return;
       haptic('tap');
-      const lvl = btn.dataset.level;
-      if (!ALL_LEVELS.includes(lvl)) return;
-      const cur = gameState.settings.levels || [...ALL_LEVELS];
-      if (cur.includes(lvl)) {
-        if (cur.length > 1) gameState.settings.levels = cur.filter((l) => l !== lvl);
-        else { showToast('⚠️ يجب الإبقاء على مستوى صعوبة واحد على الأقل'); return; }
-      } else {
-        gameState.settings.levels = [...cur, lvl];
-      }
-      gameState.soloLevels = [...gameState.settings.levels];
-      localStorage.setItem('mm_levels_v1', JSON.stringify(gameState.settings.levels));
-      syncSoloDifficultyUI();
+      const updated = applyCategoryPreset(btn.dataset.preset, gameState.settings.categoryConfig);
+      gameState.settings.categoryConfig = updated;
+      gameState.soloCategoryConfig = normalizeCategoryConfig(updated);
+      saveCategoryConfig(updated);
       aiEngine.clearQueue();
+      syncSoloMatrixUI();
       updateLobbyUI();
       publishHostRoomState('lobby');
-      aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
-    });
-  });
-
-  $('btnToggleAllCats').addEventListener('click', () => {
-    if (!gameState.isHost) return;
-    haptic('tap');
-    if (gameState.settings.categories.length === ALL_CATEGORIES.length) {
-      gameState.settings.categories = ['كرة قدم محلي', 'كرة قدم دولي'];
-    } else {
-      gameState.settings.categories = [...ALL_CATEGORIES];
-    }
-    aiEngine.clearQueue();
-    updateLobbyUI();
-    publishHostRoomState('lobby');
-    aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
-  });
-
-  document.querySelectorAll('#categorySelector .cat-chip').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (!gameState.isHost) return;
-      haptic('tap');
-      const cat = btn.dataset.cat;
-      const list = gameState.settings.categories;
-      if (list.includes(cat)) {
-        if (list.length > 1) gameState.settings.categories = list.filter((c) => c !== cat);
-      } else {
-        gameState.settings.categories = [...list, cat];
-      }
-      aiEngine.clearQueue();
-      updateLobbyUI();
-      publishHostRoomState('lobby');
-      aiEngine.ensureReady(gameState.settings.categories, 5, gameState.settings.levels);
+      aiEngine.ensureReady(gameState.settings.categoryConfig, 5);
     });
   });
 
@@ -2371,9 +2482,9 @@ function initApp() {
     const val = $('inputApiKey').value.trim();
     if (val) localStorage.setItem('mm_gemini_key', val);
     try {
-      const batch = await aiEngine.fetchBatchFromGemini(ALL_CATEGORIES, 1);
+      const batch = await aiEngine.fetchBatchFromGemini(gameState.settings.categoryConfig, 1);
       out.style.color = '#6ee7b7';
-      out.textContent = `✅ نجح التوليد! [${batch[0].category}]: ${batch[0].q}`;
+      out.textContent = `✅ نجح التوليد! [${batch[0].category} • ${batch[0].level}]: ${batch[0].q}`;
     } catch (e) {
       out.style.color = '#fca5a5';
       out.textContent = `⚠️ تعذر الاتصال حالياً (${e.message}) — سيعمل البنك الاحتياطي تلقائياً`;
